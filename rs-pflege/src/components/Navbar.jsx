@@ -284,17 +284,21 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 )}
             </AnimatePresence>
 
-            {/* OPTIMIERTES DOCK FÜR MOBILE */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[95%] sm:w-auto">
-                <nav className={`apple-glass rounded-full px-4 sm:px-5 py-2 flex items-center justify-between sm:justify-center gap-1 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
-                    <div className="flex gap-1 items-center">
+            {/* OPTIMIERTES DOCK FÜR ALLE ELEMENTE AUF MOBILE */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[98%] sm:w-auto px-2">
+                <nav className={`apple-glass rounded-full px-3 sm:px-6 py-2 flex items-center justify-between sm:justify-center gap-0.5 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
+                    <div className="flex gap-0.5 sm:gap-1 items-center">
                         {navItem('home', t.home, !isHome, '/')}
-                        {isHome && navItem('about', t.about, false, "", true)}
-                        {isHome && navItem('gallery', t.gallery, false, "", true)}
+                        {isHome && navItem('about', t.about)}
+                        {isHome && navItem('gallery', t.gallery)}
                         {navItem('preise', t.prices, true, '/preise')}
                     </div>
+
+                    {/* Trennlinie nur auf Desktop sichtbar um Platz zu sparen */}
                     <div className="h-6 w-[1px] bg-current opacity-10 mx-1 hidden sm:block"></div>
-                    <a href={isHome ? "#kontakt" : "/#kontakt"} className="bg-blue-600 hover:bg-blue-500 text-white px-5 sm:px-7 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg active:scale-95 transition-all whitespace-nowrap">
+
+                    <a href={isHome ? "#kontakt" : "/#kontakt"}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-7 py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-tighter sm:tracking-[0.15em] shadow-lg active:scale-95 transition-all whitespace-nowrap">
                         {t.contact}
                     </a>
                 </nav>
