@@ -131,7 +131,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         ? "bg-black/40 border-white/10 text-white shadow-2xl"
         : "bg-white/60 border-black/5 shadow-xl text-black";
 
-    const navItem = (id, label, isLink = false, to = "") => {
+    const navItem = (id, label, isLink = false, to = "", hideOnMobile = false) => {
         const isActive = isLink ? location.pathname === to : (activeSection === id && isHome);
         const handleClick = (e) => {
             if (id === 'home') {
@@ -142,11 +142,11 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         };
 
         const content = (
-            <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10 
+            <div className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all block relative z-10 
+                ${hideOnMobile ? 'hidden sm:block' : 'block'}
                 ${isActive ? 'text-blue-500' : 'opacity-40 hover:opacity-100'}`}>
                 <div className="flex items-center gap-1.5">
                     {label}
-                    {/* WARENKORB BADGE AM PREISE BUTTON */}
                     {id === 'preise' && cartCount > 0 && (
                         <span className="bg-blue-600 text-white text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center animate-pulse border border-white/20">
                             {cartCount}
@@ -165,14 +165,14 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         <>
             {/* THEME TOGGLE */}
             <div className="fixed top-6 left-6 z-[110]">
-                <button onClick={() => setDarkMode(!darkMode)} className={`apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
-                    {darkMode ? <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg> : <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>}
+                <button onClick={() => setDarkMode(!darkMode)} className={`apple-glass p-3 sm:p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
+                    {darkMode ? <svg className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg> : <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>}
                 </button>
             </div>
 
             {/* MENU TOGGLE MIT ADMIN INBOX BLASE */}
             <div className="fixed top-6 right-6 z-[150]">
-                <button onClick={() => setIsOpen(!isOpen)} className={`relative apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
+                <button onClick={() => setIsOpen(!isOpen)} className={`relative apple-glass p-3 sm:p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
                     {isAdmin && tickets.length > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-white animate-bounce shadow-lg">{tickets.length}</span>
                     )}
@@ -189,7 +189,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[130]" />
                         <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`fixed top-4 right-4 bottom-4 w-full max-w-[340px] rounded-[2.5rem] p-8 z-[140] flex flex-col border ${glassBase}`}>
-
+                            {/* ... (Rest des Menü-Inhalts bleibt gleich) ... */}
                             <div className="flex items-center justify-between mb-8 mt-10">
                                 {view !== 'menu' ? (
                                     <button onClick={() => setView('menu')} className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2">← {t.back}</button>
@@ -228,7 +228,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         </button>
                                     </motion.div>
                                 )}
-
+                                {/* ... Restliche Views (Inbox, Support, Settings) unverändert ... */}
                                 {view === 'inbox' && (
                                     <motion.div key="inbox" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col h-full">
                                         <div className="flex justify-between items-center mb-6">
@@ -252,7 +252,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         </div>
                                     </motion.div>
                                 )}
-
                                 {view === 'support' && (
                                     <motion.div key="support" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                         <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">{supportStatus === 'success' ? 'Erfolgreich!' : 'Support'}</p>
@@ -264,7 +263,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         )}
                                     </motion.div>
                                 )}
-
                                 {view === 'settings' && (
                                     <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                         <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">{t.language}</p>
@@ -284,17 +282,18 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 )}
             </AnimatePresence>
 
-            {/* DOCK */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-auto">
-                <nav className={`apple-glass rounded-full px-5 py-2 flex items-center gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
-                    <div className="flex gap-1 items-center">
+            {/* DOCK - OPTIMIERT FÜR MOBILE */}
+            <div className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-[100] w-[95%] sm:w-auto max-w-lg">
+                <nav className={`apple-glass rounded-full px-3 sm:px-5 py-2 flex items-center justify-between sm:justify-center gap-1 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
+                    <div className="flex gap-0.5 sm:gap-1 items-center">
                         {navItem('home', t.home, !isHome, '/')}
-                        {isHome && navItem('about', t.about)}
-                        {isHome && navItem('gallery', t.gallery)}
+                        {/* Diese zwei werden auf ganz kleinen Handys ausgeblendet, um Platz zu sparen */}
+                        {isHome && navItem('about', t.about, false, "", true)}
+                        {isHome && navItem('gallery', t.gallery, false, "", true)}
                         {navItem('preise', t.prices, true, '/preise')}
                     </div>
-                    <div className="h-6 w-[1px] bg-current opacity-10 mx-1"></div>
-                    <a href={isHome ? "#kontakt" : "/#kontakt"} className="bg-blue-600 hover:bg-blue-500 text-white px-7 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] shadow-lg active:scale-95 transition-all">
+                    <div className="h-6 w-[1px] bg-current opacity-10 mx-1 hidden sm:block"></div>
+                    <a href={isHome ? "#kontakt" : "/#kontakt"} className="bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-7 py-2 sm:py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg active:scale-95 transition-all whitespace-nowrap">
                         {t.contact}
                     </a>
                 </nav>
