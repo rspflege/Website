@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from '../translations';
 import { supabase } from '../supabaseClient';
@@ -142,7 +143,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         };
 
         const content = (
-            <div className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10 
+            <div className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10
                 ${mobileHide ? 'hidden sm:block' : 'block'}
                 ${isActive ? 'text-blue-500' : 'opacity-40 hover:opacity-100'}`}>
                 <div className="flex items-center gap-1.5">

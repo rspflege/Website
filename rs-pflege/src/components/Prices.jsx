@@ -248,6 +248,7 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+<<<<<<< HEAD
             className={`${cardClass} md:col-span-4 p-8 rounded-[2.5rem] flex flex-col transition-all duration-500 group border-2 border-transparent 
             ${isComingSoon ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02] hover:border-blue-500/20'}`}
         >
@@ -256,11 +257,25 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
                     ${isHighlight && !isComingSoon ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'bg-blue-500/10 text-blue-500'}
                     ${isComingSoon ? 'grayscale' : ''}`}>
                     
+=======
+            className={`${cardClass} md:col-span-4 p-8 rounded-[2.5rem] flex flex-col transition-all duration-500 group border-2 border-transparent
+            ${isComingSoon ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02] hover:border-blue-500/20'}`}
+        >
+            <div className="flex justify-between items-center mb-8">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all
+                    ${isHighlight && !isComingSoon ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'bg-blue-500/10 text-blue-500'}
+                    ${isComingSoon ? 'grayscale' : ''}`}>
+
+>>>>>>> ad3fcb0805f8ecb624e7f43f8edcbb3251bdf70f
                     {icon === 'interior' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2" strokeWidth="2.5" /></svg>}
                     {icon === 'exterior' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 19l9 2-9-18-9 18 9-2" strokeWidth="2.5" /></svg>}
                     {icon === 'polish' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z" strokeWidth="2.5" /></svg>}
                 </div>
+<<<<<<< HEAD
                 
+=======
+
+>>>>>>> ad3fcb0805f8ecb624e7f43f8edcbb3251bdf70f
                 {/* WENN COMING SOON: Text anzeigen, SONST: Preis anzeigen */}
                 {isComingSoon ? (
                     <span className="text-sm font-black italic text-blue-500 uppercase tracking-widest border border-blue-500/30 px-3 py-1 rounded-full">
@@ -273,8 +288,13 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
 
             <h3 className="text-3xl font-black uppercase italic mb-8 tracking-tighter leading-none">{title}</h3>
 
+<<<<<<< HEAD
             <button 
                 onClick={isComingSoon ? null : onSelect} 
+=======
+            <button
+                onClick={isComingSoon ? null : onSelect}
+>>>>>>> ad3fcb0805f8ecb624e7f43f8edcbb3251bdf70f
                 disabled={isComingSoon}
                 className={`mt-auto w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors italic shadow-lg
                 ${isComingSoon ? 'bg-gray-500/20 text-gray-500 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
@@ -283,5 +303,9 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
             </button>
         </motion.div>
     );
+<<<<<<< HEAD
 }
     ;
+=======
+};
+>>>>>>> ad3fcb0805f8ecb624e7f43f8edcbb3251bdf70f
