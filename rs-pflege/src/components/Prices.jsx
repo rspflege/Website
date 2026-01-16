@@ -20,7 +20,6 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
     // --- AUTOMATISCHE PREISAKTUALISIERUNG IM WARENKORB ---
     useEffect(() => {
         setCart(prevCart => prevCart.map(item => {
-            // Prüfen, ob das Item für Wax berechtigt ist (Innen, Außen oder Kombi)
             const isEligible = item.name.includes(t.interior) ||
                 item.name.includes(t.exterior) ||
                 item.name.includes(t.signatureCombo);
@@ -37,7 +36,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
             }
             return item;
         }));
-    }, [withWax]); // Jedes Mal wenn Wax getoggled wird, aktualisiert sich der Cart
+    }, [withWax]);
 
     useEffect(() => {
         if (isCartOpen) cartEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -85,13 +84,12 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 <p className={`${subTextColor} font-bold uppercase tracking-[0.5em] text-[10px]`}>{t.tarifeSub}</p>
             </motion.div>
 
-            {/* --- WAX TOGGLE (FIXED ICON) --- */}
+            {/* --- WAX TOGGLE --- */}
             <div className="flex justify-center mb-20">
                 <button
                     onClick={() => setWithWax(!withWax)}
                     className={`${cardClass} px-10 py-5 rounded-full flex items-center gap-6 border-2 transition-all duration-500 ${withWax ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_40px_rgba(37,99,235,0.3)]' : 'border-transparent hover:border-white/20'}`}
                 >
-                    {/* HIER WAR DER FEHLER: rotate-90 entfernt */}
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${withWax ? 'bg-blue-500 border-blue-400' : 'border-gray-400'}`}>
                         {withWax && (
                             <motion.svg
@@ -174,15 +172,15 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 </motion.div>
             </div>
 
-            {/* --- FLOATING WARENKORB --- */}
-            <div className="fixed bottom-10 left-6 z-[200]">
+            {/* --- FLOATING WARENKORB (Handy Optimierung: bottom-32 statt bottom-10) --- */}
+            <div className="fixed bottom-32 md:bottom-10 left-6 z-[200]">
                 <AnimatePresence>
                     {isCartOpen && cart?.length > 0 && (
                         <motion.div
                             initial={{ opacity: 0, x: -50, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
                             exit={{ opacity: 0, x: -50, scale: 0.9 }}
-                            className="bg-[#0a0a0a]/95 backdrop-blur-3xl border border-white/20 p-8 rounded-[3rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] w-[360px] mb-6 flex flex-col"
+                            className="bg-[#0a0a0a]/95 backdrop-blur-3xl border border-white/20 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] w-[85vw] md:w-[360px] mb-6 flex flex-col"
                         >
                             <div className="flex justify-between items-center mb-6">
                                 <span className="text-[10px] font-black uppercase text-blue-500 tracking-[0.3em] italic">Auswahl ({cart.length})</span>
@@ -209,11 +207,11 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                             <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
                                 <div className="text-left">
                                     <p className="text-[8px] font-black uppercase text-white/30 tracking-widest">Total</p>
-                                    <p className="text-4xl font-black italic text-white tracking-tighter">{cart.reduce((s, i) => s + i.price, 0)}€</p>
+                                    <p className="text-3xl md:text-4xl font-black italic text-white tracking-tighter">{cart.reduce((s, i) => s + i.price, 0)}€</p>
                                 </div>
                                 <button
                                     onClick={scrollToContact}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 italic transition-all active:scale-95"
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 md:px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 italic transition-all active:scale-95"
                                 >
                                     Anfragen
                                 </button>
@@ -227,13 +225,13 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setIsCartOpen(!isCartOpen)}
-                        className="bg-blue-600 w-20 h-20 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)] border-4 border-black dark:border-white/5 relative group"
+                        className="bg-blue-600 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)] border-4 border-black dark:border-white/5 relative group"
                     >
                         <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20" />
-                        <svg className="w-8 h-8 text-white relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-6 h-6 md:w-8 md:h-8 text-white relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeWidth="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                         </svg>
-                        <span className="absolute -top-1 -right-1 bg-white text-blue-600 text-[12px] font-black w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-blue-600 z-20">
+                        <span className="absolute -top-1 -right-1 bg-white text-blue-600 text-[10px] md:text-[12px] font-black w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-blue-600 z-20">
                             {cart.length}
                         </span>
                     </motion.button>
