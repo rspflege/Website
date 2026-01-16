@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from '../translations';
 import { supabase } from '../supabaseClient';
 
-// HIER WEITERE ADMINS HINZUFÜGEN
 const ADMIN_EMAILS = [
     'spahiu.endrit09@hotmail.com',
     'rspflege.office@gmail.com',
@@ -16,8 +14,8 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
     const [isOpen, setIsOpen] = useState(false);
     const [view, setView] = useState('menu');
     const [activeSection, setActiveSection] = useState('home');
+    const [showPriceMenu, setShowPriceMenu] = useState(false); // State für das neue Sub-Menü
 
-    // Support & Inbox State
     const [supportMsg, setSupportMsg] = useState("");
     const [supportStatus, setSupportStatus] = useState(null);
     const [tickets, setTickets] = useState([]);
@@ -26,11 +24,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
     const navigate = useNavigate();
     const isHome = location.pathname === "/";
     const t = translations[lang] || translations.de;
-
-    // Admin Check
     const isAdmin = user && ADMIN_EMAILS.includes(user.email);
-
-    // --- LOGIK FÜR TICKETS (Optimiert mit useCallback gegen rote Unterwellung) ---
 
     const fetchTickets = useCallback(async () => {
         if (!isAdmin) return;
@@ -38,53 +32,29 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
             .from('support_tickets')
             .select('*')
             .order('created_at', { ascending: false });
-
-        if (!error) {
-            setTickets(data || []);
-        }
+        if (!error) setTickets(data || []);
     }, [isAdmin]);
 
     useEffect(() => {
         if (isAdmin) {
             fetchTickets();
-            const channel = supabase
-                .channel('admin-inbox')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
-                    fetchTickets();
-                })
+            const channel = supabase.channel('admin-inbox')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => fetchTickets())
                 .subscribe();
-
             return () => { supabase.removeChannel(channel); };
         }
     }, [isAdmin, fetchTickets]);
 
-    // Einzelnes Ticket löschen
     const deleteTicket = async (id) => {
         setTickets(prev => prev.filter(t => t.id !== id));
-        const { error } = await supabase
-            .from('support_tickets')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            alert("Fehler beim Löschen: " + error.message);
-            fetchTickets();
-        }
+        const { error } = await supabase.from('support_tickets').delete().eq('id', id);
+        if (error) fetchTickets();
     };
 
-    // Alle Tickets löschen
     const clearAllTickets = async () => {
-        if (!window.confirm("Wirklich ALLE Tickets unwiderruflich löschen?")) return;
+        if (!window.confirm("ALLE Tickets löschen?")) return;
         setTickets([]);
-        const { error } = await supabase
-            .from('support_tickets')
-            .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000');
-
-        if (error) {
-            alert("Fehler: " + error.message);
-            fetchTickets();
-        }
+        await supabase.from('support_tickets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     };
 
     const sendSupportTicket = async () => {
@@ -95,9 +65,8 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
             message: supportMsg,
             status: 'neu'
         }]);
-        if (error) {
-            setSupportStatus('error');
-        } else {
+        if (error) setSupportStatus('error');
+        else {
             setSupportStatus('success');
             setSupportMsg("");
             setTimeout(() => { setSupportStatus(null); setView('menu'); }, 2000);
@@ -108,8 +77,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         await supabase.auth.signOut();
         setIsOpen(false);
     };
-
-    // --- NAVIGATION HELPER ---
 
     useEffect(() => {
         if (!isHome) { setActiveSection('preise'); return; }
@@ -134,7 +101,14 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
 
     const navItem = (id, label, isLink = false, to = "", mobileHide = false) => {
         const isActive = isLink ? location.pathname === to : (activeSection === id && isHome);
+
         const handleClick = (e) => {
+            if (id === 'preise') {
+                e.preventDefault();
+                setShowPriceMenu(!showPriceMenu); // Toggle das neue Menü
+                return;
+            }
+            setShowPriceMenu(false);
             if (id === 'home') {
                 if (isHome) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
                 else { navigate('/'); window.scrollTo(0, 0); }
@@ -146,7 +120,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
             <div className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10
                 ${mobileHide ? 'hidden sm:block' : 'block'}
                 ${isActive ? 'text-blue-500' : 'opacity-40 hover:opacity-100'}`}>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
                     {label}
                     {id === 'preise' && cartCount > 0 && (
                         <span className="bg-blue-600 text-white text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center border border-white/20">
@@ -171,7 +145,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 </button>
             </div>
 
-            {/* MENU TOGGLE MIT ADMIN INBOX BLASE */}
+            {/* MENU TOGGLE */}
             <div className="fixed top-6 right-6 z-[150]">
                 <button onClick={() => setIsOpen(!isOpen)} className={`relative apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
                     {isAdmin && tickets.length > 0 && (
@@ -185,12 +159,12 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 </button>
             </div>
 
+            {/* SIDEBAR MENU */}
             <AnimatePresence>
                 {isOpen && (
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[130]" />
                         <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`fixed top-4 right-4 bottom-4 w-full max-w-[340px] rounded-[2.5rem] p-8 z-[140] flex flex-col border ${glassBase}`}>
-
                             <div className="flex items-center justify-between mb-8 mt-10">
                                 {view !== 'menu' ? (
                                     <button onClick={() => setView('menu')} className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2">← {t.back}</button>
@@ -198,7 +172,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">{user ? 'Account' : 'RS Account'}</p>
                                 )}
                             </div>
-
                             <AnimatePresence mode="wait">
                                 {view === 'menu' && (
                                     <motion.div key="menu" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
@@ -229,7 +202,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         </button>
                                     </motion.div>
                                 )}
-
+                                {/* ... Restliche Views (inbox, support, settings) bleiben gleich ... */}
                                 {view === 'inbox' && (
                                     <motion.div key="inbox" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col h-full">
                                         <div className="flex justify-between items-center mb-6">
@@ -253,25 +226,19 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         </div>
                                     </motion.div>
                                 )}
-
                                 {view === 'support' && (
                                     <motion.div key="support" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                                        <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">{supportStatus === 'success' ? 'Erfolgreich!' : 'Support'}</p>
-                                        {supportStatus !== 'success' && (
-                                            <>
-                                                <textarea value={supportMsg} onChange={(e) => setSupportMsg(e.target.value)} className={`w-full h-32 rounded-2xl p-4 text-xs font-medium outline-none resize-none ${darkMode ? 'bg-white/5 text-white' : 'bg-black/5 text-black'}`} placeholder="Deine Nachricht..."></textarea>
-                                                <button onClick={sendSupportTicket} disabled={supportStatus === 'sending'} className="w-full py-4 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">{supportStatus === 'sending' ? '...' : 'Send Ticket'}</button>
-                                            </>
-                                        )}
+                                        <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">Support</p>
+                                        <textarea value={supportMsg} onChange={(e) => setSupportMsg(e.target.value)} className={`w-full h-32 rounded-2xl p-4 text-xs font-medium outline-none resize-none ${darkMode ? 'bg-white/5 text-white' : 'bg-black/5 text-black'}`} placeholder="Deine Nachricht..."></textarea>
+                                        <button onClick={sendSupportTicket} className="w-full py-4 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Send Ticket</button>
                                     </motion.div>
                                 )}
-
                                 {view === 'settings' && (
                                     <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                         <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">{t.language}</p>
-                                        <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-[40vh]">
+                                        <div className="grid grid-cols-1 gap-2">
                                             {Object.keys(translations).map((code) => (
-                                                <button key={code} onClick={() => setLang(code)} className={`p-4 rounded-xl text-left text-[10px] font-black uppercase transition-all ${lang === code ? 'bg-blue-600 text-white' : 'bg-current/5'}`}>
+                                                <button key={code} onClick={() => setLang(code)} className={`p-4 rounded-xl text-left text-[10px] font-black uppercase ${lang === code ? 'bg-blue-600 text-white' : 'bg-current/5'}`}>
                                                     {code === 'de' ? 'Deutsch' : code === 'en' ? 'English' : code.toUpperCase()}
                                                 </button>
                                             ))}
@@ -285,14 +252,53 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 )}
             </AnimatePresence>
 
-            {/* OPTIMIERTES DOCK FÜR ALLE ELEMENTE AUF MOBILE */}
+            {/* DOCK UNTEN */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[98%] sm:w-auto px-2">
+
+                {/* SUB-MENÜ FÜR PREISE (Popup) */}
+                <AnimatePresence>
+                    {showPriceMenu && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className={`absolute bottom-full left-0 right-0 mb-4 mx-auto w-fit min-w-[200px] apple-glass border rounded-[2rem] p-2 flex flex-col gap-1 backdrop-blur-3xl shadow-2xl ${glassBase}`}
+                        >
+                            <Link
+                                to="/preise"
+                                onClick={() => setShowPriceMenu(false)}
+                                className="flex items-center justify-between px-6 py-4 hover:bg-blue-600 hover:text-white rounded-[1.5rem] transition-all group"
+                            >
+                                <span className="text-[10px] font-black uppercase italic tracking-widest">Services / Tarife</span>
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity">✨</span>
+                            </Link>
+                            <div className="h-[1px] w-full bg-current opacity-5" />
+                            <Link
+                                to="/preise"
+                                onClick={() => {
+                                    setShowPriceMenu(false);
+                                    // Scrollt direkt zum Shop-Bereich nach Navigation
+                                    setTimeout(() => {
+                                        const shopSection = document.querySelector('h2:contains("SHOP")') || document.querySelector('.mt-40');
+                                        shopSection?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 100);
+                                }}
+                                className="flex items-center justify-between px-6 py-4 hover:bg-blue-600 hover:text-white rounded-[1.5rem] transition-all group"
+                            >
+                                <span className="text-[10px] font-black uppercase italic tracking-widest">Shop / Produkte</span>
+                                <span className="text-[8px] bg-blue-500/20 text-blue-500 px-2 py-1 rounded-full group-hover:bg-white group-hover:text-blue-600 transition-all">SOON</span>
+                            </Link>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 <nav className={`apple-glass rounded-full px-3 sm:px-6 py-2 flex items-center justify-between sm:justify-center gap-0.5 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
                     <div className="flex gap-0.5 sm:gap-1 items-center">
                         {navItem('home', t.home, !isHome, '/')}
                         {isHome && navItem('about', t.about)}
                         {isHome && navItem('gallery', t.gallery)}
-                        {navItem('preise', t.prices, true, '/preise')}
+                        {/* HIER DIE ÄNDERUNG: TARIFE & PREISE */}
+                        {navItem('preise', 'Tarife & Preise', true, '/preise')}
                     </div>
 
                     <div className="h-6 w-[1px] bg-current opacity-10 mx-1 hidden sm:block"></div>
