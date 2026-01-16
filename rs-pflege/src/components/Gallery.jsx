@@ -39,20 +39,6 @@ export default function Gallery({ darkMode, lang }) {
                             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
 
-                        {/* Overlay Effekt */}
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80 opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-
-                        {/* Text Inhalt */}
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                            <div className="flex flex-col items-center gap-2">
-                                <div className="w-8 h-[1px] bg-blue-500 scale-0 group-hover:scale-100 transition-transform duration-500" />
-                                <span className="text-[10px] font-black text-white drop-shadow-md uppercase tracking-[0.3em] translate-y-2 group-hover:translate-y-0 transition-all duration-500">
-                                    {t.comingSoon}
-                                </span>
-                                <div className="w-8 h-[1px] bg-blue-500 scale-0 group-hover:scale-100 transition-transform duration-500" />
-                            </div>
-                        </div>
-
                         {/* Glow Effekt */}
                         <div className="absolute -inset-2 bg-blue-600/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                     </div>
