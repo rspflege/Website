@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom'; // Neu importiert
+import { useNavigate } from 'react-router-dom';
 import { translations } from '../translations';
 
 export default function Prices({ darkMode, lang, cart, setCart }) {
     const [withWax, setWithWax] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const cartEndRef = useRef(null);
-    const navigate = useNavigate(); // Hook initialisiert
+    const navigate = useNavigate();
 
     const t = translations[lang] || translations.de;
 
@@ -16,6 +16,28 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
     const cardClass = darkMode
         ? 'bg-[#1c1c1e]/80 backdrop-blur-2xl border border-white/10 shadow-2xl'
         : 'bg-white/80 backdrop-blur-2xl border border-black/[0.05] shadow-xl';
+
+    // --- AUTOMATISCHE PREISAKTUALISIERUNG IM WARENKORB ---
+    useEffect(() => {
+        setCart(prevCart => prevCart.map(item => {
+            // Prüfen, ob das Item für Wax berechtigt ist (Innen, Außen oder Kombi)
+            const isEligible = item.name.includes(t.interior) ||
+                item.name.includes(t.exterior) ||
+                item.name.includes(t.signatureCombo);
+
+            if (isEligible) {
+                const baseName = item.name.replace(" + Premium Wax", "");
+                const basePrice = baseName.includes(t.signatureCombo) ? 35 : 20;
+
+                return {
+                    ...item,
+                    name: withWax ? `${baseName} + Premium Wax` : baseName,
+                    price: withWax ? basePrice + 2 : basePrice
+                };
+            }
+            return item;
+        }));
+    }, [withWax]); // Jedes Mal wenn Wax getoggled wird, aktualisiert sich der Cart
 
     useEffect(() => {
         if (isCartOpen) cartEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,13 +69,8 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
         if (updated.length === 0) setIsCartOpen(false);
     };
 
-    // --- GEÄNDERTE NAVIGATION FUNKTION ---
     const scrollToContact = () => {
-        // Schließe den Warenkorb
         setIsCartOpen(false);
-
-        // Navigiere zur Startseite mit dem Kontakt-Hash
-        // Der useEffect in Home.jsx erledigt dann das Scrollen
         navigate('/#kontakt');
     };
 
@@ -68,21 +85,33 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 <p className={`${subTextColor} font-bold uppercase tracking-[0.5em] text-[10px]`}>{t.tarifeSub}</p>
             </motion.div>
 
-            {/* --- WAX TOGGLE --- */}
+            {/* --- WAX TOGGLE (FIXED ICON) --- */}
             <div className="flex justify-center mb-20">
                 <button
                     onClick={() => setWithWax(!withWax)}
                     className={`${cardClass} px-10 py-5 rounded-full flex items-center gap-6 border-2 transition-all duration-500 ${withWax ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_40px_rgba(37,99,235,0.3)]' : 'border-transparent hover:border-white/20'}`}
                 >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${withWax ? 'bg-blue-500 border-blue-400 rotate-90' : 'border-gray-400'}`}>
-                        {withWax && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
+                    {/* HIER WAR DER FEHLER: rotate-90 entfernt */}
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${withWax ? 'bg-blue-500 border-blue-400' : 'border-gray-400'}`}>
+                        {withWax && (
+                            <motion.svg
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" />
+                            </motion.svg>
+                        )}
                     </div>
                     <span className="text-xs font-black uppercase tracking-widest italic">{t.premiumWax} <span className="text-blue-500 ml-1">+2€</span></span>
                 </button>
             </div>
 
             {/* --- BENTO GRID --- */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 text-left">
                 <ServiceCard title={t.interior} price={withWax ? 22 : 20} onSelect={() => handleSelect(t.interior, 20)} t={t} cardClass={cardClass} icon="interior" />
                 <ServiceCard title={t.exterior} price={withWax ? 22 : 20} onSelect={() => handleSelect(t.exterior, 20)} t={t} cardClass={cardClass} icon="exterior" />
                 <ServiceCard title={t.polishing} price={80} onSelect={() => handleSelect(t.polishing, 80)} t={t} cardClass={cardClass} icon="polish" isHighlight />
@@ -94,14 +123,14 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                     viewport={{ once: true }}
                     className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] bg-gradient-to-r from-blue-600/10 via-transparent to-transparent flex flex-col md:flex-row items-center gap-12 relative overflow-hidden group transition-all duration-500`}
                 >
-                    <div className="flex-1 z-10 text-left">
+                    <div className="flex-1 z-10">
                         <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 inline-block italic">Best Value</div>
                         <h3 className="text-5xl md:text-7xl font-black italic uppercase mb-6 leading-tight">
                             {t.signatureCombo.split(' ')[0]} <br />
                             <span className="text-blue-500">{t.signatureCombo.split(' ')[1]}</span>
                         </h3>
                         <div className="flex items-center gap-6">
-                            <div className="text-6xl font-black italic text-blue-500 transition-all duration-500">
+                            <div className="text-6xl font-black italic text-blue-500">
                                 {withWax ? '37€' : '35€'}
                             </div>
                             {withWax && (
@@ -109,7 +138,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                             )}
                         </div>
                     </div>
-                    <div className="flex-1 w-full z-10 flex flex-col gap-4 text-left">
+                    <div className="flex-1 w-full z-10 flex flex-col gap-4">
                         <p className={`${subTextColor} text-[11px] font-bold uppercase tracking-widest leading-loose mb-4`}>{t.comboDesc}</p>
                         <button
                             onClick={() => handleSelect(t.signatureCombo, 35)}
@@ -127,7 +156,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                     viewport={{ once: true }}
                     className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] border-blue-500/40 bg-blue-600/[0.03] transition-all duration-500`}
                 >
-                    <div className="flex flex-col md:flex-row justify-between gap-12 text-left">
+                    <div className="flex flex-col md:flex-row justify-between gap-12">
                         <div className="flex-1">
                             <h3 className="text-4xl font-black uppercase italic text-blue-500 mb-6">{t.premiumMaster}</h3>
                             <div className="flex flex-wrap gap-3 mb-8">
@@ -230,7 +259,7 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight }
                 </div>
                 <span className={`text-3xl font-black italic ${isHighlight ? 'text-blue-500' : ''}`}>{price}€</span>
             </div>
-            <h3 className="text-3xl font-black uppercase italic mb-8 tracking-tighter leading-none text-left">{title}</h3>
+            <h3 className="text-3xl font-black uppercase italic mb-8 tracking-tighter leading-none">{title}</h3>
             <button onClick={onSelect} className="mt-auto w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-colors italic shadow-lg">
                 Hinzufügen +
             </button>

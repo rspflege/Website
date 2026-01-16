@@ -131,7 +131,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         ? "bg-black/40 border-white/10 text-white shadow-2xl"
         : "bg-white/60 border-black/5 shadow-xl text-black";
 
-    const navItem = (id, label, isLink = false, to = "") => {
+    const navItem = (id, label, isLink = false, to = "", mobileHide = false) => {
         const isActive = isLink ? location.pathname === to : (activeSection === id && isHome);
         const handleClick = (e) => {
             if (id === 'home') {
@@ -142,13 +142,13 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         };
 
         const content = (
-            <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10 
+            <div className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all block relative z-10 
+                ${mobileHide ? 'hidden sm:block' : 'block'}
                 ${isActive ? 'text-blue-500' : 'opacity-40 hover:opacity-100'}`}>
                 <div className="flex items-center gap-1.5">
                     {label}
-                    {/* WARENKORB BADGE AM PREISE BUTTON */}
                     {id === 'preise' && cartCount > 0 && (
-                        <span className="bg-blue-600 text-white text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center animate-pulse border border-white/20">
+                        <span className="bg-blue-600 text-white text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center border border-white/20">
                             {cartCount}
                         </span>
                     )}
@@ -284,17 +284,21 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 )}
             </AnimatePresence>
 
-            {/* DOCK */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-auto">
-                <nav className={`apple-glass rounded-full px-5 py-2 flex items-center gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
-                    <div className="flex gap-1 items-center">
+            {/* OPTIMIERTES DOCK FÜR ALLE ELEMENTE AUF MOBILE */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[98%] sm:w-auto px-2">
+                <nav className={`apple-glass rounded-full px-3 sm:px-6 py-2 flex items-center justify-between sm:justify-center gap-0.5 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
+                    <div className="flex gap-0.5 sm:gap-1 items-center">
                         {navItem('home', t.home, !isHome, '/')}
                         {isHome && navItem('about', t.about)}
                         {isHome && navItem('gallery', t.gallery)}
                         {navItem('preise', t.prices, true, '/preise')}
                     </div>
-                    <div className="h-6 w-[1px] bg-current opacity-10 mx-1"></div>
-                    <a href={isHome ? "#kontakt" : "/#kontakt"} className="bg-blue-600 hover:bg-blue-500 text-white px-7 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] shadow-lg active:scale-95 transition-all">
+
+                    {/* Trennlinie nur auf Desktop sichtbar um Platz zu sparen */}
+                    <div className="h-6 w-[1px] bg-current opacity-10 mx-1 hidden sm:block"></div>
+
+                    <a href={isHome ? "#kontakt" : "/#kontakt"}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-7 py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-tighter sm:tracking-[0.15em] shadow-lg active:scale-95 transition-all whitespace-nowrap">
                         {t.contact}
                     </a>
                 </nav>
