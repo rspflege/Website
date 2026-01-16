@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,9 +30,9 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
     // Admin Check
     const isAdmin = user && ADMIN_EMAILS.includes(user.email);
 
-    // --- LOGIK FÜR TICKETS ---
+    // --- LOGIK FÜR TICKETS (Optimiert mit useCallback gegen rote Unterwellung) ---
 
-    const fetchTickets = async () => {
+    const fetchTickets = useCallback(async () => {
         if (!isAdmin) return;
         const { data, error } = await supabase
             .from('support_tickets')
@@ -42,7 +42,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         if (!error) {
             setTickets(data || []);
         }
-    };
+    }, [isAdmin]);
 
     useEffect(() => {
         if (isAdmin) {
@@ -56,7 +56,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
 
             return () => { supabase.removeChannel(channel); };
         }
-    }, [user, isAdmin]);
+    }, [isAdmin, fetchTickets]);
 
     // Einzelnes Ticket löschen
     const deleteTicket = async (id) => {
@@ -295,7 +295,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                         {navItem('preise', t.prices, true, '/preise')}
                     </div>
 
-                    {/* Trennlinie nur auf Desktop sichtbar um Platz zu sparen */}
                     <div className="h-6 w-[1px] bg-current opacity-10 mx-1 hidden sm:block"></div>
 
                     <a href={isHome ? "#kontakt" : "/#kontakt"}
