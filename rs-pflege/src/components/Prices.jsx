@@ -123,7 +123,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                     className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] bg-gradient-to-r from-blue-600/10 via-transparent to-transparent flex flex-col md:flex-row items-center gap-12 relative overflow-hidden group transition-all duration-500`}
                 >
                     <div className="flex-1 z-10">
-                        <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 inline-block italic">Best Value</div>
+                        <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 inline-block italic">{t.bestValue}</div>
                         <h3 className="text-5xl md:text-7xl font-black italic uppercase mb-6 leading-tight">
                             {t.signatureCombo.split(' ')[0]} <br />
                             <span className="text-blue-500">{t.signatureCombo.split(' ')[1]}</span>
@@ -173,7 +173,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 </motion.div>
             </div>
 
-            {/* --- FLOATING WARENKORB (Handy Optimierung: bottom-32 statt bottom-10) --- */}
+            {/* --- FLOATING WARENKORB --- */}
             <div className="fixed bottom-32 md:bottom-10 left-6 z-[200]">
                 <AnimatePresence>
                     {isCartOpen && cart?.length > 0 && (
@@ -184,7 +184,9 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                             className="bg-[#0a0a0a]/95 backdrop-blur-3xl border border-white/20 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_100px_rgba(0,0,0,0.8)] w-[85vw] md:w-[360px] mb-6 flex flex-col"
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <span className="text-[10px] font-black uppercase text-blue-500 tracking-[0.3em] italic">Auswahl ({cart.length})</span>
+                                <span className="text-[10px] font-black uppercase text-blue-500 tracking-[0.3em] italic">
+                                    {t.cartTitle} ({cart.length})
+                                </span>
                                 <button onClick={() => setIsCartOpen(false)} className="text-white/20 hover:text-white transition-colors">✕</button>
                             </div>
 
@@ -207,14 +209,14 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
 
                             <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
                                 <div className="text-left">
-                                    <p className="text-[8px] font-black uppercase text-white/30 tracking-widest">Total</p>
+                                    <p className="text-[8px] font-black uppercase text-white/30 tracking-widest">{t.cartSubtotal}</p>
                                     <p className="text-3xl md:text-4xl font-black italic text-white tracking-tighter">{cart.reduce((s, i) => s + i.price, 0)}€</p>
                                 </div>
                                 <button
                                     onClick={scrollToContact}
                                     className="bg-blue-600 hover:bg-blue-500 text-white px-6 md:px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 italic transition-all active:scale-95"
                                 >
-                                    Anfragen
+                                    {t.cartAnfragen}
                                 </button>
                             </div>
                         </motion.div>
@@ -261,7 +263,6 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
                     {icon === 'polish' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z" strokeWidth="2.5" /></svg>}
                 </div>
 
-                {/* WENN COMING SOON: Text anzeigen, SONST: Preis anzeigen */}
                 {isComingSoon ? (
                     <span className="text-sm font-black italic text-blue-500 uppercase tracking-widest border border-blue-500/30 px-3 py-1 rounded-full">
                         {t.comingSoon}
@@ -279,8 +280,8 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, 
                 className={`mt-auto w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors italic shadow-lg
                 ${isComingSoon ? 'bg-gray-500/20 text-gray-500 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
             >
-                {isComingSoon ? t.comingSoon : "Hinzufügen +"}
+                {isComingSoon ? t.comingSoon : `${t.chooseModule} +`}
             </button>
         </motion.div>
     );
-};
+}
