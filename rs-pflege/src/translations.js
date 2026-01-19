@@ -28,7 +28,6 @@ export const translations = {
         nameLabel: "Name", namePlaceholder: "Z.B. MAX MUSTERMANN",
         emailPlaceholder: "DEINE@MAIL.DE", messageLabel: "Nachricht & Fahrzeug", messagePlaceholder: "WELCHES AUTO?",
         submitBtn: "Termin anfragen", rights: "Alle Rechte vorbehalten.", imprint: "Impressum", privacy: "Datenschutz",
-        // Warenkorb / Auswahl Begriffe
         cartTitle: "Ihre Auswahl", cartAnfragen: "Anfragen", cartTotal: "Gesamt", cartSubtotal: "Total", cartExterior: "Exterieur"
     },
     en: {
@@ -132,7 +131,7 @@ export const translations = {
         authError: "Email o password non validi", authSuccess: "Accesso effettuato",
         registerSuccess: "Account creato! Ora puoi accedere.", fieldRequired: "Campo obbligatorio",
         heroTitle: "DETAILING DI PRECISIONE", heroSub1: "Non laviamo soltanto. Perfezioniamo.", heroSub2: "Come nuovo, di serie.",
-        aboutTitle: "DUE FRATELLI.", aboutSubtitle: "UNA PASSIONE.",
+        aboutTitle: "DUE FRATELLI.", aboutSubtitle: "UNA PASSION.",
         aboutText: "RS Pflege nasce dall'amore per i dettagli. La nostra missione è portare la cura dell'auto a un livello superiore.",
         handwork: "Fatto a mano", local: "Esperti locali",
         galleryTitle: "PROGETTI", gallerySub: "RECENTI", comingSoon: "Prossimamente",
@@ -222,7 +221,7 @@ export const translations = {
         back: "Geri", loginRequired: "Giriş Gerekli", login: "Giriş", register: "Kayıt Ol",
         settings: "Ayarlar", language: "Dil", support: "Destek", book: "Randevu Al",
         logout: "Çıkış Yap", loggedInAs: "Giriş yapıldı:",
-        authError: "E-posta veya şifre hatalı", authSuccess: "Giriş başarılı",
+        authError: "E-posta oder şifre hatalı", authSuccess: "Giriş başarılı",
         registerSuccess: "Hesap oluşturuldu! Şimdi giriş yapabilirsiniz.", fieldRequired: "Bu alan zorunludur",
         heroTitle: "HASSAS DETAYLAR", heroSub1: "Sadece yıkamıyoruz. Kusursuzlaştırıyoruz.", heroSub2: "Standart olarak yeni durum.",
         aboutTitle: "İKİ KARDEŞ.", aboutSubtitle: "TEK TUTKU.",
