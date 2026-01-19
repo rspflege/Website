@@ -27,6 +27,7 @@ export default function Hero({ darkMode, lang }) {
                     <img
                         src="/logo-rs.png"
                         alt="RS Pflege"
+                        /* ÄNDERUNG HIER: brightness-0 entfernt, damit die Originalfarben bleiben */
                         className={`h-32 md:h-52 w-auto drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]`}
                     />
                 </div>
