@@ -146,7 +146,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                         </button>
                     </div>
                 </motion.div>
-                
+
                 {/* Premium Master Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
@@ -197,35 +197,6 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                         </div>
                         <div className="relative w-full md:w-auto">
                             <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
-                                {t.comingSoon}
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Premium Master Card */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] border-blue-500/20 bg-blue-600/[0.01] transition-all duration-500 opacity-70`}
-                >
-                    <div className="flex flex-col md:flex-row justify-between gap-12">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-6">
-                                <h3 className="text-4xl font-black uppercase italic text-gray-500">{t.premiumMaster}</h3>
-                                <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest">
-                                    {t.comingSoon}
-                                </span>
-                            </div>
-                            <div className="flex flex-wrap gap-3 mb-8">
-                                {t.tags.map(tag => <span key={tag} className="text-[8px] font-black border border-gray-500/30 px-3 py-1 rounded-full uppercase opacity-40">✓ {tag}</span>)}
-                            </div>
-                            <p className={`${subTextColor} text-xs font-medium uppercase tracking-widest`}>{t.masterDesc}</p>
-                        </div>
-                        <div className="text-right flex flex-col justify-center items-end">
-                            <div className="text-8xl font-black italic mb-6 tracking-tighter opacity-20">100€</div>
-                            <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/20 text-gray-500 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
                                 {t.comingSoon}
                             </button>
                         </div>
