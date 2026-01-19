@@ -17,11 +17,15 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
         ? 'bg-[#1c1c1e]/80 backdrop-blur-2xl border border-white/10 shadow-2xl'
         : 'bg-white/80 backdrop-blur-2xl border border-black/[0.05] shadow-xl';
 
-    // --- AUTOMATISCHE PREISAKTUALISIERUNG IM WARENKORB ---
+    // --- AUTOMATISCHE PREISAKTUALISIERUNG IM WARENKORB (Nur für Services) ---
     useEffect(() => {
         setCart(prevCart => prevCart.map(item => {
             if (item.type !== 'service') return item;
-            const isEligible = item.name.includes(t.interior) || item.name.includes(t.exterior) || item.name.includes(t.signatureCombo);
+            
+            const isEligible = item.name.includes(t.interior) || 
+                               item.name.includes(t.exterior) || 
+                               item.name.includes(t.signatureCombo);
+
             if (isEligible) {
                 const baseName = item.name.replace(" + Premium Wax", "");
                 const basePrice = baseName.includes(t.signatureCombo) ? 35 : 20;
@@ -48,8 +52,8 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
             id: Math.random().toString(36).substr(2, 9),
             name: finalName,
             price: finalPrice,
-            type: type,
-            carModel: type === 'service' ? '' : null
+            type: type, // 'service' oder 'product'
+            carModel: type === 'service' ? '' : null // Modell nur für Services nötig
         };
 
         setCart(prev => [...prev, newItem]);
@@ -69,7 +73,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
     return (
         <div className={`pt-32 pb-40 px-6 min-h-screen max-w-7xl mx-auto transition-all duration-700 ${textColor}`}>
 
-            {/* --- SECTION 1: TARIFE (AKTIV) --- */}
+            {/* --- SECTION 1: TARIFE (SERVICES) --- */}
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
                 <h2 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter mb-4">
                     {t.tarifeTitle?.split(' ')[0] || "PREMIUM"} <span className="text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">{t.tarifeTitle?.split(' ')[1] || "TARIFE"}</span>
@@ -77,6 +81,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 <p className={`${subTextColor} font-bold uppercase tracking-[0.5em] text-[10px]`}>{t.tarifeSub}</p>
             </motion.div>
 
+            {/* Wax Toggle */}
             <div className="flex justify-center mb-12">
                 <button
                     onClick={() => setWithWax(!withWax)}
@@ -93,7 +98,8 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 <ServiceCard title={t.interior} price={withWax ? 22 : 20} onSelect={() => addToCart(t.interior, 20)} t={t} cardClass={cardClass} icon="interior" />
                 <ServiceCard title={t.exterior} price={withWax ? 22 : 20} onSelect={() => addToCart(t.exterior, 20)} t={t} cardClass={cardClass} icon="exterior" />
                 <ServiceCard title={t.polishing} price={80} isComingSoon={true} t={t} cardClass={cardClass} icon="polish" />
-
+                
+                {/* Signature Combo */}
                 <motion.div className={`${cardClass} md:col-span-12 p-10 rounded-[3rem] bg-gradient-to-r from-blue-600/10 to-transparent flex flex-col md:flex-row items-center gap-8`}>
                     <div className="flex-1">
                         <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase mb-4 inline-block italic">{t.bestValue}</div>
@@ -106,40 +112,22 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                 </motion.div>
             </div>
 
-            {/* --- SECTION 2: SHOP (BLURRED OVERLAY) --- */}
-            <div className="relative mt-40">
-                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
-                    <h2 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter mb-4 opacity-50">
-                        {lang === 'en' ? 'OUR' : 'UNSERE'} <span className="text-blue-500">{lang === 'en' ? 'SHOP' : 'PRODUKTE'}</span>
-                    </h2>
-                </motion.div>
+            {/* --- SECTION 2: SHOP (PRODUKTE) --- */}
+            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16 pt-16 border-t border-white/5">
+                <h2 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter mb-4">
+                    {lang === 'en' ? 'OUR' : 'UNSERE'} <span className="text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">{lang === 'en' ? 'SHOP' : 'PRODUKTE'}</span>
+                </h2>
+                <p className={`${subTextColor} font-bold uppercase tracking-[0.5em] text-[10px]`}>{lang === 'en' ? 'Professional Equipment' : 'Professionelles Equipment'}</p>
+            </motion.div>
 
-                {/* Hintergrund Grid (Blurred) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 filter blur-xl opacity-20 pointer-events-none select-none">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                        <div key={i} className={`${cardClass} p-8 rounded-[2.5rem] aspect-[4/5]`} />
-                    ))}
-                </div>
-
-                {/* Glass Block mit Demnächst Text */}
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4">
-                    <div className={`absolute inset-0 backdrop-blur-md rounded-[4rem] border-2 border-white/5 ${darkMode ? 'bg-black/10' : 'bg-white/5'}`} />
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        whileInView={{ scale: 1, opacity: 1 }}
-                        className="relative z-20 text-center"
-                    >
-                        <div className="bg-blue-600 text-white px-10 py-4 rounded-full text-2xl font-black uppercase italic tracking-[0.2em] shadow-[0_0_50px_rgba(59,130,246,0.4)] mb-6 animate-pulse">
-                            {t.comingSoon}
-                        </div>
-                        <p className={`text-sm font-black uppercase tracking-[0.4em] ${darkMode ? 'text-white/60' : 'text-black/60'}`}>
-                            {lang === 'en' ? 'Exclusive Detailing Gear' : 'Exklusives Detailing Equipment'}
-                        </p>
-                    </motion.div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <ProductCard name="Detailing Brush Set" price="14.99" t={t} cardClass={cardClass} />
+                <ProductCard name="Microfiber Gold" price="9.99" t={t} cardClass={cardClass} />
+                <ProductCard name="Premium Wheel Cleaner" price="19.99" t={t} cardClass={cardClass} />
             </div>
 
-            {/* --- FLOATING WARENKORB --- */}
+            {/* --- WARENKORB LOGIK (BLEIBT GLEICH) --- */}
+            {/* ... (Warenkorb-Code wie in deinem Snippet, aber mit Check auf item.type für carModel Input) ... */}
             <div className="fixed bottom-32 md:bottom-10 left-6 z-[200]">
                 <AnimatePresence>
                     {isCartOpen && cart?.length > 0 && (
@@ -192,7 +180,9 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
     );
 }
 
-function ServiceCard({ title, price, onSelect, t, cardClass, icon, isComingSoon }) {
+// --- HILFS-KOMPONENTEN ---
+
+function ServiceCard({ title, price, onSelect, t, cardClass, icon, isHighlight, isComingSoon }) {
     return (
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className={`${cardClass} md:col-span-4 p-8 rounded-[2.5rem] flex flex-col transition-all group border-2 border-transparent ${isComingSoon ? 'opacity-70 grayscale' : 'hover:border-blue-500/20'}`}>
             <div className="flex justify-between items-center mb-8">
@@ -206,6 +196,28 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isComingSoon 
             <h3 className="text-2xl font-black uppercase italic mb-8">{title}</h3>
             <button onClick={isComingSoon ? null : onSelect} disabled={isComingSoon} className={`w-full py-4 rounded-xl font-black text-[9px] uppercase tracking-widest italic ${isComingSoon ? 'bg-gray-500/20 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
                 {isComingSoon ? t.comingSoon : `${t.chooseModule} +`}
+            </button>
+        </motion.div>
+    );
+}
+
+function ProductCard({ name, price, t, cardClass }) {
+    return (
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className={`${cardClass} p-8 rounded-[2.5rem] flex flex-col opacity-60 relative overflow-hidden group`}>
+            {/* Coming Soon Overlay für Shop-Produkte */}
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="bg-blue-600 text-white px-4 py-2 rounded-full font-black uppercase text-[10px] italic tracking-widest transform -rotate-12 shadow-2xl">
+                    {t.comingSoon}
+                </span>
+            </div>
+            
+            <div className="aspect-square bg-white/5 rounded-3xl mb-6 flex items-center justify-center">
+                <svg className="w-12 h-12 text-white/10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeWidth="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </div>
+            <h3 className="text-xl font-black uppercase italic mb-2">{name}</h3>
+            <p className="text-blue-500 font-black italic mb-6">{price}€</p>
+            <button disabled className="w-full py-4 rounded-xl bg-white/5 text-white/20 font-black text-[9px] uppercase tracking-widest italic">
+                {t.comingSoon}
             </button>
         </motion.div>
     );
