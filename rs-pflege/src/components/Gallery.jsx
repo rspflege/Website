@@ -13,6 +13,7 @@ export default function Gallery({ darkMode, lang }) {
     const [activeTab, setActiveTab] = useState('all');
     const [currentIndex, setCurrentIndex] = useState(null);
     const [sliderPos, setSliderPos] = useState(50); // Für den Vorher-Nachher Slider
+    const [isDragging, setIsDragging] = useState(false);
 
     // Kategorien definieren
     const categories = [
@@ -30,8 +31,8 @@ export default function Gallery({ darkMode, lang }) {
         { src: imgDash, alt: "Cockpit", cat: 'interior', size: "md:col-span-1 md:row-span-1" },
     ];
 
-    const filteredImages = activeTab === 'all' 
-        ? allImages 
+    const filteredImages = activeTab === 'all'
+        ? allImages
         : allImages.filter(img => img.cat === activeTab);
 
     // Navigation
@@ -47,24 +48,32 @@ export default function Gallery({ darkMode, lang }) {
         setCurrentIndex((prev) => (prev - 1 + filteredImages.length) % filteredImages.length);
     };
 
+    // Slider-Steuerung für Touch & Maus
+    const handleMove = (e) => {
+        if (!isDragging && e.type !== 'change') return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.pageX || e.touches[0].pageX) - rect.left;
+        const pos = Math.max(0, Math.min(100, (x / rect.width) * 100));
+        setSliderPos(pos);
+    };
+
     return (
         <section id="gallery" className="py-32 px-6 max-w-7xl mx-auto">
             <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="text-center mb-16">
-                <h2 className={`text-5xl md:text-7xl font-black italic uppercase mb-6 ${darkMode ? 'text-white' : 'text-black'}`}>
-                    {t.galleryTitle || "Unsere"} <span className="text-blue-500">{t.gallerySub || "Projekte"}</span>
+                <h2 className={`text-6xl md:text-8xl font-black italic uppercase mb-6 tracking-tighter ${darkMode ? 'text-white' : 'text-black'}`}>
+                    {t.galleryTitle || "PURE"} <span className="text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">{t.gallerySub || "RESULTS"}</span>
                 </h2>
-                
-                {/* CATEGORY FOLDERS (Filter) */}
-                <div className="flex flex-wrap justify-center gap-2 mt-10">
+
+                {/* CATEGORY FOLDERS */}
+                <div className="flex flex-wrap justify-center gap-3 mt-10">
                     {categories.map(cat => (
                         <button
                             key={cat.id}
                             onClick={() => setActiveTab(cat.id)}
-                            className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${
-                                activeTab === cat.id 
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/30' 
-                                : (darkMode ? 'border-white/10 text-white/40 hover:text-white' : 'border-black/5 text-black/40 hover:text-black')
-                            }`}
+                            className={`px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-500 border-2 ${activeTab === cat.id
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] scale-105'
+                                    : (darkMode ? 'border-white/5 text-white/30 hover:border-white/20 hover:text-white' : 'border-black/5 text-black/40 hover:text-black')
+                                }`}
                         >
                             {cat.label}
                         </button>
@@ -73,7 +82,7 @@ export default function Gallery({ darkMode, lang }) {
             </motion.div>
 
             {/* BENTO GRID */}
-            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[200px] md:auto-rows-[250px] gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[200px] md:auto-rows-[300px] gap-4 md:gap-8">
                 <AnimatePresence mode="popLayout">
                     {filteredImages.map((image, index) => (
                         <motion.div
@@ -82,20 +91,22 @@ export default function Gallery({ darkMode, lang }) {
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
                             onClick={() => setCurrentIndex(index)}
-                            className={`${image.size} rounded-[2.5rem] overflow-hidden relative group cursor-pointer border ${darkMode ? 'border-white/5' : 'border-black/5'} shadow-2xl bg-black`}
+                            className={`${image.size} rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden relative group cursor-pointer border-2 ${darkMode ? 'border-white/5' : 'border-black/5'} shadow-2xl bg-[#0a0a0a]`}
                         >
-                            <img src={image.src} alt={image.alt} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100" />
-                            
+                            <img src={image.src} alt={image.alt} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+
                             {/* Comparison Badge */}
                             {image.isComparison && (
-                                <div className="absolute top-4 left-4 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                                    Before/After
+                                <div className="absolute top-6 left-6 bg-blue-600/90 backdrop-blur-md text-white text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest z-10 italic">
+                                    Before / After
                                 </div>
                             )}
 
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-8 flex flex-col justify-end">
-                                <p className="text-white text-xs font-black uppercase tracking-widest">{image.alt}</p>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 p-10 flex flex-col justify-end translate-y-4 group-hover:translate-y-0">
+                                <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2">Project Details</p>
+                                <p className="text-white text-2xl font-black italic uppercase tracking-tighter leading-none">{image.alt}</p>
                             </div>
                         </motion.div>
                     ))}
@@ -107,67 +118,82 @@ export default function Gallery({ darkMode, lang }) {
                 {currentIndex !== null && (
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[1000] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-4 md:p-12"
                         onClick={() => setCurrentIndex(null)}
                     >
-                        {/* Navigation Controls */}
-                        <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 flex justify-between px-4 md:px-10 w-full pointer-events-none">
-                            <button onClick={prevImage} className="p-4 text-white/20 hover:text-blue-500 pointer-events-auto transition-all bg-white/5 rounded-full backdrop-blur-md">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                            <button onClick={nextImage} className="p-4 text-white/20 hover:text-blue-500 pointer-events-auto transition-all bg-white/5 rounded-full backdrop-blur-md">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                        {/* UI Elements */}
+                        <div className="absolute top-10 left-10 right-10 flex justify-between items-center z-[1010]">
+                            <div className="text-white">
+                                <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.4em] mb-1 italic">RS Detailing Gallery</p>
+                                <p className="text-2xl font-black italic uppercase">{filteredImages[currentIndex].alt}</p>
+                            </div>
+                            <button onClick={() => setCurrentIndex(null)} className="w-14 h-14 bg-white/5 hover:bg-red-500/20 hover:text-red-500 text-white transition-all rounded-full flex items-center justify-center backdrop-blur-md border border-white/10">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        <div className="relative w-full max-w-6xl h-[70vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                            {filteredImages[currentIndex].isComparison ? (
-                                /* VORHER NACHHER SLIDER */
-                                <div className="relative w-full h-full rounded-[3rem] overflow-hidden select-none border border-white/10 shadow-2xl">
-                                    {/* Nachher (Basis) */}
-                                    <img src={filteredImages[currentIndex].src} className="absolute inset-0 w-full h-full object-cover" />
-                                    
-                                    {/* Vorher (Obere Ebene) */}
-                                    <div 
-                                        className="absolute inset-0 w-full h-full overflow-hidden border-r-2 border-white/50" 
-                                        style={{ width: `${sliderPos}%` }}
-                                    >
-                                        <img src={filteredImages[currentIndex].before} className="absolute inset-0 w-[100vw] h-full object-cover max-w-none" style={{ width: 'calc(6xl)' }} />
-                                        <div className="absolute top-10 left-10 bg-black/50 backdrop-blur-md text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">Before</div>
-                                    </div>
-                                    <div className="absolute top-10 right-10 bg-blue-600 text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em]">After</div>
+                        {/* Navigation */}
+                        <div className="absolute inset-x-4 md:inset-x-10 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none z-[1010]">
+                            <button onClick={prevImage} className="p-6 text-white/20 hover:text-blue-500 pointer-events-auto transition-all bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-xl border border-white/5 group">
+                                <svg className="w-8 h-8 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <button onClick={nextImage} className="p-6 text-white/20 hover:text-blue-500 pointer-events-auto transition-all bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-xl border border-white/5 group">
+                                <svg className="w-8 h-8 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
 
-                                    {/* Slider Handle */}
-                                    <input 
-                                        type="range" min="0" max="100" value={sliderPos} 
-                                        onChange={(e) => setSliderPos(e.target.value)}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-50"
-                                    />
-                                    <div className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_20px_rgba(255,255,255,0.5)] z-40 pointer-events-none" style={{ left: `${sliderPos}%` }}>
-                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-blue-600">
-                                            <div className="flex gap-1">
-                                                <div className="w-1 h-3 bg-blue-600 rounded-full" />
-                                                <div className="w-1 h-3 bg-blue-600 rounded-full" />
-                                            </div>
+                        <div className="relative w-full h-full max-w-6xl max-h-[80vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                            {filteredImages[currentIndex].isComparison ? (
+                                <div
+                                    className="relative w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden select-none border border-white/10 shadow-[0_50px_100px_rgba(0,0,0,0.9)] cursor-ew-resize"
+                                    onMouseMove={handleMove}
+                                    onTouchMove={handleMove}
+                                    onMouseDown={() => setIsDragging(true)}
+                                    onMouseUp={() => setIsDragging(false)}
+                                    onMouseLeave={() => setIsDragging(false)}
+                                >
+                                    {/* Nachher (Basis) */}
+                                    <img src={filteredImages[currentIndex].src} className="absolute inset-0 w-full h-full object-cover pointer-events-none" alt="After" />
+
+                                    {/* Vorher (Obere Ebene) */}
+                                    <div
+                                        className="absolute inset-0 w-full h-full overflow-hidden border-r-4 border-blue-500 shadow-[10px_0_40px_rgba(0,0,0,0.5)]"
+                                        style={{ width: `${sliderPos}%`, transition: isDragging ? 'none' : 'width 0.1s ease-out' }}
+                                    >
+                                        <img
+                                            src={filteredImages[currentIndex].before}
+                                            className="absolute inset-0 h-full object-cover max-w-none pointer-events-none"
+                                            style={{ width: 'calc(100vw * 0.8)' }} // Dynamische Breite für das Vorher-Bild
+                                            alt="Before"
+                                        />
+                                        <div className="absolute top-10 left-10 bg-black/60 backdrop-blur-xl text-white text-[10px] font-black px-6 py-3 rounded-full uppercase tracking-[0.3em] border border-white/10">Before</div>
+                                    </div>
+
+                                    {/* Labels & Handle */}
+                                    <div className="absolute top-10 right-10 bg-blue-600 text-white text-[10px] font-black px-6 py-3 rounded-full uppercase tracking-[0.3em] shadow-xl italic">After</div>
+
+                                    {/* Custom Handle Button */}
+                                    <div
+                                        className="absolute top-0 bottom-0 w-1 z-40 pointer-events-none"
+                                        style={{ left: `${sliderPos}%`, transition: isDragging ? 'none' : 'left 0.1s ease-out' }}
+                                    >
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.6)] border-4 border-white">
+                                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l-5 5m0 0l5 5m-5-5h18m-5-10l5 5m0 0l-5 5" />
+                                            </svg>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                /* NORMALES BILD */
                                 <motion.img
                                     key={currentIndex}
                                     src={filteredImages[currentIndex].src}
-                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    className="max-h-full w-full object-cover rounded-[3rem] shadow-2xl border border-white/10"
+                                    className="max-h-full w-auto object-contain rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white/10"
                                 />
                             )}
                         </div>
-                        
-                        {/* Close Button Top Right */}
-                        <button onClick={() => setCurrentIndex(null)} className="absolute top-10 right-10 text-white/30 hover:text-white transition-all">
-                            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -110,6 +110,8 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
 
             {/* --- BENTO GRID --- */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 text-left">
+
+                {/* Standard Module */}
                 <ServiceCard title={t.interior} price={withWax ? 22 : 20} onSelect={() => handleSelect(t.interior, 20)} t={t} cardClass={cardClass} icon="interior" />
                 <ServiceCard title={t.exterior} price={withWax ? 22 : 20} onSelect={() => handleSelect(t.exterior, 20)} t={t} cardClass={cardClass} icon="exterior" />
                 <ServiceCard title={t.polishing} price={80} isComingSoon={true} t={t} cardClass={cardClass} icon="polish" />
@@ -147,61 +149,73 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                     </div>
                 </motion.div>
 
-                {/* Premium Master Card */}
+                {/* --- RS SHOP / PRODUKTE --- */}
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] border-blue-500/20 bg-blue-600/[0.01] transition-all duration-500 opacity-70`}
+                    className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] bg-gradient-to-br from-gray-500/5 to-transparent flex flex-col md:flex-row justify-between items-center gap-12 relative overflow-hidden border-dashed border-2 border-gray-500/20`}
+                >
+                    <div className="flex-1 relative z-10">
+                        <div className="flex items-center gap-4 mb-6">
+                            <h3 className="text-4xl md:text-6xl font-black uppercase italic text-gray-500/50">RS Shop</h3>
+                            <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest border border-blue-500/20">
+                                {t.comingSoon}
+                            </span>
+                        </div>
+                        <p className={`${subTextColor} text-xs md:text-sm font-bold uppercase tracking-[0.2em] max-w-xl leading-relaxed`}>
+                            Unsere exklusive Auswahl an High-End Pflegeprodukten für die Heimanwendung. Von pH-neutralen Shampoos bis hin zu speziellen Versiegelungen – demnächst verfügbar.
+                        </p>
+                    </div>
+                    <div className="w-full md:w-auto flex flex-col gap-4 relative z-10">
+                        <div className="flex -space-x-4 mb-4 justify-center md:justify-end opacity-20 grayscale">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="w-16 h-16 rounded-2xl bg-gray-500/20 border border-white/10 flex items-center justify-center">
+                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeWidth="1.5" /></svg>
+                                </div>
+                            ))}
+                        </div>
+                        <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
+                            Shop Eröffnung folgt
+                        </button>
+                    </div>
+                    {/* Background Decor */}
+                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px]" />
+                </motion.div>
+
+                {/* --- PREMIUM MASTER CARD --- */}
+                <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] border-blue-500/20 bg-blue-600/[0.01] transition-all duration-500 opacity-70 group`}
                 >
                     <div className="flex flex-col md:flex-row justify-between gap-12">
                         <div className="flex-1">
                             <div className="flex items-center gap-4 mb-6">
-                                <h3 className="text-4xl font-black uppercase italic text-gray-500">{t.premiumMaster}</h3>
-                                <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest">
+                                <h3 className="text-4xl md:text-5xl font-black uppercase italic text-gray-500">{t.premiumMaster}</h3>
+                                <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest border border-blue-500/20">
                                     {t.comingSoon}
                                 </span>
                             </div>
                             <div className="flex flex-wrap gap-3 mb-8">
-                                {t.tags.map(tag => <span key={tag} className="text-[8px] font-black border border-gray-500/30 px-3 py-1 rounded-full uppercase opacity-40">✓ {tag}</span>)}
+                                {t.tags.map(tag => (
+                                    <span key={tag} className="text-[9px] font-black border border-gray-500/30 px-4 py-2 rounded-full uppercase opacity-40 group-hover:opacity-100 transition-opacity">
+                                        ✓ {tag}
+                                    </span>
+                                ))}
                             </div>
-                            <p className={`${subTextColor} text-xs font-medium uppercase tracking-widest`}>{t.masterDesc}</p>
+                            <p className={`${subTextColor} text-xs font-medium uppercase tracking-[0.2em] max-w-2xl`}>{t.masterDesc}</p>
                         </div>
                         <div className="text-right flex flex-col justify-center items-end">
-                            <div className="text-8xl font-black italic mb-6 tracking-tighter opacity-20">100€</div>
-                            <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/20 text-gray-500 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
-                                {t.comingSoon}
+                            <div className="text-8xl font-black italic mb-6 tracking-tighter opacity-10 group-hover:opacity-20 transition-opacity">100€</div>
+                            <button disabled className="px-12 py-6 rounded-2xl bg-gray-500/20 text-gray-500 font-black uppercase text-[10px] tracking-[0.3em] cursor-not-allowed italic border border-white/5">
+                                Bald Reservieren
                             </button>
                         </div>
                     </div>
                 </motion.div>
 
-                {/* --- PRODUKTE (NEWLY ADDED & SET TO COMING SOON) --- */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className={`${cardClass} md:col-span-12 p-12 rounded-[3.5rem] border-blue-500/20 bg-blue-600/[0.01] transition-all duration-500 group relative overflow-hidden opacity-80`}
-                >
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-12">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-4">
-                                <h3 className="text-4xl md:text-5xl font-black uppercase italic text-gray-500">RS Shop / Produkte</h3>
-                                <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest">
-                                    {t.comingSoon}
-                                </span>
-                            </div>
-                            <p className={`${subTextColor} text-xs font-medium uppercase tracking-[0.2em]`}>
-                                Exklusive Pflegeprodukte für dein Fahrzeug. In Kürze hier erhältlich.
-                            </p>
-                        </div>
-                        <div className="relative w-full md:w-auto">
-                            <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
-                                {t.comingSoon}
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
             </div>
 
             {/* --- FLOATING WARENKORB --- */}

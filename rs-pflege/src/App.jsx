@@ -8,13 +8,20 @@ import LoginModal from './components/LoginModal';
 import { translations } from './translations';
 import { supabase } from './supabaseClient';
 
+// Kleiner Helper für besseren Page-Flow
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+};
+
 export default function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [lang, setLang] = useState('de');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [user, setUser] = useState(null);
 
-  // GLOBALER STATE MIT INITIALISIERUNG AUS DEM SPEICHER
+  // GLOBALER STATE MIT INITIALISIERUNG
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem('rs_pflege_cart');
     return saved ? JSON.parse(saved) : [];
@@ -22,12 +29,12 @@ export default function App() {
 
   const location = useLocation();
 
-  // --- PERSISTENZ: SPEICHERN BEI JEDER ÄNDERUNG ---
+  // PERSISTENZ
   useEffect(() => {
     localStorage.setItem('rs_pflege_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // --- AUTH LOGIK ---
+  // AUTH LOGIK
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -39,9 +46,11 @@ export default function App() {
   }, []);
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#f5f5f7] text-black'}`}>
+    <div className={`min-h-screen transition-colors duration-700 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#f5f5f7] text-black'}`}>
 
-      {/* Navbar mit Warenkorb-Zähler */}
+      <ScrollToTop />
+
+      {/* Navbar */}
       <Navbar
         darkMode={darkMode} setDarkMode={setDarkMode}
         lang={lang} setLang={setLang}
@@ -52,13 +61,13 @@ export default function App() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
 
-          {/* STARTSEITE (Home) */}
+          {/* STARTSEITE (Hier landet der Process & die Gallery via Home.jsx) */}
           <Route path="/" element={
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
             >
               <Home
                 darkMode={darkMode}
@@ -96,6 +105,8 @@ export default function App() {
         lang={lang}
         translations={translations}
       />
+
+      {/* Optional: Globaler Footer oder Chat-Button hier */}
     </div>
   );
 }

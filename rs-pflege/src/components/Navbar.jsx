@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from '../translations';
 import { supabase } from '../supabaseClient';
+import WeatherWidget from './WeatherWidget'; // Neu importiert
 
 const ADMIN_EMAILS = [
     'spahiu.endrit09@hotmail.com',
@@ -14,7 +15,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
     const [isOpen, setIsOpen] = useState(false);
     const [view, setView] = useState('menu');
     const [activeSection, setActiveSection] = useState('home');
-    const [showPriceMenu, setShowPriceMenu] = useState(false); // State für das neue Sub-Menü
+    const [showPriceMenu, setShowPriceMenu] = useState(false);
 
     const [supportMsg, setSupportMsg] = useState("");
     const [supportStatus, setSupportStatus] = useState(null);
@@ -105,7 +106,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         const handleClick = (e) => {
             if (id === 'preise') {
                 e.preventDefault();
-                setShowPriceMenu(!showPriceMenu); // Toggle das neue Menü
+                setShowPriceMenu(!showPriceMenu);
                 return;
             }
             setShowPriceMenu(false);
@@ -138,14 +139,22 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
 
     return (
         <>
-            {/* THEME TOGGLE */}
-            <div className="fixed top-6 left-6 z-[110]">
+            {/* OBERE BAR (Wetter & Theme) */}
+            <div className="fixed top-6 left-6 z-[110] flex items-center gap-3">
+                {/* WETTER WIDGET - Standortbasiert */}
+                <WeatherWidget darkMode={darkMode} />
+
+                {/* THEME TOGGLE */}
                 <button onClick={() => setDarkMode(!darkMode)} className={`apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
-                    {darkMode ? <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg> : <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>}
+                    {darkMode ? (
+                        <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                    ) : (
+                        <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+                    )}
                 </button>
             </div>
 
-            {/* MENU TOGGLE */}
+            {/* MENU TOGGLE (Rechts Oben) */}
             <div className="fixed top-6 right-6 z-[150]">
                 <button onClick={() => setIsOpen(!isOpen)} className={`relative apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
                     {isAdmin && tickets.length > 0 && (
@@ -202,7 +211,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                         </button>
                                     </motion.div>
                                 )}
-                                {/* ... Restliche Views (inbox, support, settings) bleiben gleich ... */}
                                 {view === 'inbox' && (
                                     <motion.div key="inbox" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col h-full">
                                         <div className="flex justify-between items-center mb-6">
@@ -277,9 +285,8 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                 to="/preise"
                                 onClick={() => {
                                     setShowPriceMenu(false);
-                                    // Scrollt direkt zum Shop-Bereich nach Navigation
                                     setTimeout(() => {
-                                        const shopSection = document.querySelector('h2:contains("SHOP")') || document.querySelector('.mt-40');
+                                        const shopSection = document.querySelector('.mt-40');
                                         shopSection?.scrollIntoView({ behavior: 'smooth' });
                                     }, 100);
                                 }}
@@ -297,7 +304,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                         {navItem('home', t.home, !isHome, '/')}
                         {isHome && navItem('about', t.about)}
                         {isHome && navItem('gallery', t.gallery)}
-                        {/* HIER DIE ÄNDERUNG: TARIFE & PREISE */}
                         {navItem('preise', 'Tarife & Preise', true, '/preise')}
                     </div>
 
