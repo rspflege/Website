@@ -141,9 +141,6 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
         <>
             {/* OBERE BAR (Wetter & Theme) */}
             <div className="fixed top-6 left-6 z-[110] flex items-center gap-3">
-                {/* WETTER WIDGET - Standortbasiert */}
-                <WeatherWidget darkMode={darkMode} />
-
                 {/* THEME TOGGLE */}
                 <button onClick={() => setDarkMode(!darkMode)} className={`apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}>
                     {darkMode ? (
@@ -152,6 +149,8 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                         <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
                     )}
                 </button>
+                {/* WETTER WIDGET - Standortbasiert */}
+                <WeatherWidget darkMode={darkMode} />
             </div>
 
             {/* MENU TOGGLE (Rechts Oben) */}
