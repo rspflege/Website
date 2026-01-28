@@ -2,15 +2,15 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Hero from './components/Hero';
 import About from './components/About';
-import Process from './components/Process'; // Neu importiert
+import Process from './components/Process';
 import Gallery from './components/Gallery';
 import Contact from './components/Contact';
+import WeatherWidget from './components/WeatherWidget';
 
 export default function Home({ darkMode, lang, cart, setCart }) {
     const location = useLocation();
 
     useEffect(() => {
-        // Prüft ob die URL auf #kontakt endet
         if (location.hash) {
             const id = location.hash.replace('#', '');
             const element = document.getElementById(id);
@@ -23,7 +23,8 @@ export default function Home({ darkMode, lang, cart, setCart }) {
     }, [location]);
 
     return (
-        <main>
+        <main className={darkMode ? 'bg-black' : 'bg-white'}>
+
             {/* 1. Visueller Einstieg */}
             <Hero darkMode={darkMode} lang={lang} />
 
@@ -32,12 +33,12 @@ export default function Home({ darkMode, lang, cart, setCart }) {
                 <About darkMode={darkMode} lang={lang} />
             </section>
 
-            {/* 3. Wie arbeitet ihr? (Die neue Methode) */}
+            {/* 3. Wie arbeitet ihr? */}
             <section id="process">
                 <Process darkMode={darkMode} lang={lang} />
             </section>
 
-            {/* 4. Ergebnisse zeigen (Inkl. neuem Vorher-Nachher Slider) */}
+            {/* 4. Ergebnisse zeigen */}
             <section id="gallery">
                 <Gallery darkMode={darkMode} lang={lang} />
             </section>
