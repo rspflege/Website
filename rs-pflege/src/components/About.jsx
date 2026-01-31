@@ -31,7 +31,7 @@ export default function About({ darkMode, lang }) {
                         </div>
 
                         <div className={`${cardClass} p-6 rounded-3xl flex-1 text-center backdrop-blur-md border transition-transform hover:scale-105 duration-500`}>
-                            <div className="text-3xl font-black text-blue-500 mb-1 italic">VÖ</div>
+                            <div className="text-3xl font-black text-blue-500 mb-1 italic">VÖ, GM</div>
                             <div className="text-[9px] font-black uppercase tracking-widest opacity-50">
                                 {t.local}
                             </div>

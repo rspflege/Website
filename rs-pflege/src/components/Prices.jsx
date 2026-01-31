@@ -2,20 +2,74 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from 'react-router-dom';
 import { translations } from '../translations';
-
 export default function Prices({ darkMode, lang, cart, setCart }) {
     // --- FAHRZEUGTYPEN KONFIGURATION ---
+    // --- INNERHALB DEINER PRICES KOMPONENTE ---
+
     const CAR_TYPES = {
-        small: { id: 'small', label: 'Kleinwagen', upcharge: -5 },
-        sedan: { id: 'sedan', label: 'Limousine', upcharge: 0 },
-        suv: { id: 'suv', label: 'SUV / Kombi', upcharge: 10 },
-        van: { id: 'van', label: 'Transporter / Bus', upcharge: 25 }
+        small: {
+            id: 'small',
+            label: {
+                de: 'Kleinwagen',
+                en: 'Small Car',
+                sq: 'Makine e vogël', // Albanisch
+                es: 'Coche pequeño',  // Spanisch
+                it: 'Auto piccola',   // Italienisch
+                fr: 'Petite voiture', // Französisch
+                tr: 'Küçük Araba',    // Türkisch
+                bs: 'Mali automobil'  // Bosnisch
+            }[lang] || 'Kleinwagen',
+            upcharge: -5
+        },
+        sedan: {
+            id: 'sedan',
+            label: {
+                de: 'Limousine',
+                en: 'Sedan',
+                sq: 'Limuzinë',
+                es: 'Sedán',
+                it: 'Berlina',
+                fr: 'Berline',
+                tr: 'Sedan',
+                bs: 'Limuzina'
+            }[lang] || 'Limousine',
+            upcharge: 0
+        },
+        suv: {
+            id: 'suv',
+            label: {
+                de: 'SUV / Kombi',
+                en: 'SUV / Station Wagon',
+                sq: 'SUV / Karavan',
+                es: 'SUV / Familiar',
+                it: 'SUV / Station Wagon',
+                fr: 'SUV / Break',
+                tr: 'SUV / Station Wagon',
+                bs: 'SUV / Karavan'
+            }[lang] || 'SUV / Kombi',
+            upcharge: 10
+        },
+        van: {
+            id: 'van',
+            label: {
+                de: 'Transporter / Bus',
+                en: 'Van / Bus',
+                sq: 'Van / Autobus',
+                es: 'Furgoneta / Autobús',
+                it: 'Furgone / Autobus',
+                fr: 'Fourgon / Bus',
+                tr: 'Panelvan / Otobüs',
+                bs: 'Kombi / Autobus'
+            }[lang] || 'Transporter / Bus',
+            upcharge: 25
+        }
     };
 
     // --- STATES ---
     const [withWax, setWithWax] = useState(false);
     const [carType, setCarType] = useState('sedan');
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [errors, setErrors] = useState([]);
     const cartEndRef = useRef(null);
     const navigate = useNavigate();
 
@@ -92,18 +146,38 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
     };
 
     const updateCarModel = (id, model) => {
+        if (model.trim() !== "") {
+            setErrors(prev => prev.filter(errId => errId !== id));
+        }
         setCart(cart.map(item => item.id === id ? { ...item, carModel: model } : item));
     };
 
     const removeItem = (id) => {
         const updated = cart.filter(item => item.id !== id);
         setCart(updated);
+        setErrors(prev => prev.filter(errId => errId !== id));
         if (updated.length === 0) setIsCartOpen(false);
     };
 
-    const scrollToContact = () => {
+    const validateAndSubmit = () => {
+        const missingFields = cart
+            .filter(item => !item.carModel || item.carModel.trim() === "")
+            .map(item => item.id);
+
+        if (missingFields.length > 0) {
+            setErrors(missingFields);
+            return;
+        }
+
         setIsCartOpen(false);
         navigate('/#kontakt');
+    };
+
+    const shakeVariants = {
+        error: {
+            x: [0, -10, 10, -10, 10, 0],
+            transition: { duration: 0.4 }
+        }
     };
 
     return (
@@ -120,7 +194,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
             {/* --- CONFIGURATOR CONTROLS --- */}
             <div className="flex flex-col items-center justify-center gap-8 mb-20">
 
-                {/* ANIMIERTER Car Type Switcher */}
+                {/* CAR TYPE SWITCHER */}
                 <div className={`${cardClass} p-2 rounded-[2rem] flex flex-wrap justify-center gap-2 border border-white/5 max-w-3xl relative`}>
                     {Object.values(CAR_TYPES).map((type) => (
                         <button
@@ -196,7 +270,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                                 {getPrice(t.signatureCombo)}€
                             </div>
                             {withWax && (
-                                <span className="text-[10px] font-black uppercase text-blue-400 bg-blue-400/10 px-3 py-1 rounded-lg animate-bounce">Inkl. Wax</span>
+                                <span className="text-[10px] font-black uppercase text-blue-400 bg-blue-400/10 px-3 py-1 rounded-lg animate-bounce">{lang === 'en' ? 'Incl. Wax' : 'Inkl. Wax'}</span>
                             )}
                         </div>
                     </div>
@@ -224,11 +298,11 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                             <span className="bg-blue-500/10 text-blue-500 px-4 py-1 rounded-full text-[10px] font-black uppercase italic tracking-widest border border-blue-500/20">{t.comingSoon}</span>
                         </div>
                         <p className={`${subTextColor} text-xs md:text-sm font-bold uppercase tracking-[0.2em] max-w-xl leading-relaxed`}>
-                            Exklusive High-End Pflegeprodukte für zuhause. Demnächst verfügbar.
+                            {lang === 'en' ? 'Exclusive high-end care products for home. Coming soon.' : 'Exklusive High-End Pflegeprodukte für zuhause. Demnächst verfügbar.'}
                         </p>
                     </div>
                     <button disabled className="px-12 py-5 rounded-2xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-black uppercase text-[10px] tracking-widest cursor-not-allowed italic">
-                        Shop Eröffnung folgt
+                        {lang === 'en' ? 'Shop opening soon' : 'Shop Eröffnung folgt'}
                     </button>
                 </motion.div>
 
@@ -257,7 +331,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                         <div className="text-right flex flex-col justify-center items-end">
                             <div className="text-8xl font-black italic mb-6 tracking-tighter opacity-10 group-hover:opacity-20 transition-opacity">100€</div>
                             <button disabled className="px-12 py-6 rounded-2xl bg-gray-500/20 text-gray-500 font-black uppercase text-[10px] tracking-[0.3em] cursor-not-allowed italic border border-white/5">
-                                Bald Reservieren
+                                {lang === 'en' ? 'Reserve Soon' : 'Bald Reservieren'}
                             </button>
                         </div>
                     </div>
@@ -283,18 +357,23 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
 
                             <div className="max-h-[300px] overflow-y-auto space-y-4 pr-2 custom-scrollbar text-left">
                                 {cart.map((item) => (
-                                    <div key={item.id} className="bg-white/5 border border-white/5 p-5 rounded-2xl relative group">
+                                    <motion.div
+                                        key={item.id}
+                                        variants={shakeVariants}
+                                        animate={errors.includes(item.id) ? "error" : ""}
+                                        className={`bg-white/5 border p-5 rounded-2xl relative group transition-all duration-300 ${errors.includes(item.id) ? 'border-red-500/50 bg-red-500/5 shadow-[0_0_20px_rgba(239,68,68,0.1)]' : 'border-white/5'}`}
+                                    >
                                         <button onClick={() => removeItem(item.id)} className="absolute top-3 right-3 text-white/10 group-hover:text-red-500 transition-colors">✕</button>
                                         <p className="text-blue-400 text-[9px] font-black uppercase mb-1 italic tracking-tighter">{item.name}</p>
                                         <p className="text-white/40 text-[8px] mb-2 font-bold uppercase tracking-widest">{item.price}€</p>
                                         <input
                                             type="text"
-                                            placeholder="MARKE & MODELL..."
+                                            placeholder={errors.includes(item.id) ? (lang === 'en' ? "PLEASE SPECIFY MODEL!" : "BITTE MODELL ANGEBEN!") : (lang === 'en' ? "BRAND & MODEL..." : "MARKE & MODELL...")}
                                             value={item.carModel}
                                             onChange={(e) => updateCarModel(item.id, e.target.value)}
-                                            className="bg-transparent text-white text-[11px] font-bold border-b border-white/10 focus:border-blue-500 outline-none w-full pb-1 uppercase italic placeholder:text-white/10"
+                                            className={`bg-transparent text-white text-[11px] font-bold border-b focus:border-blue-500 outline-none w-full pb-1 uppercase italic transition-colors ${errors.includes(item.id) ? 'border-red-500/50 placeholder:text-red-500/40' : 'border-white/10 placeholder:text-white/10'}`}
                                         />
-                                    </div>
+                                    </motion.div>
                                 ))}
                                 <div ref={cartEndRef} />
                             </div>
@@ -304,7 +383,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                                     <p className="text-[8px] font-black uppercase text-white/30 tracking-widest">{t.cartSubtotal}</p>
                                     <p className="text-3xl md:text-4xl font-black italic text-white tracking-tighter">{cart.reduce((s, i) => s + i.price, 0)}€</p>
                                 </div>
-                                <button onClick={scrollToContact} className="bg-blue-600 hover:bg-blue-500 text-white px-6 md:px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 italic transition-all active:scale-95">
+                                <button onClick={validateAndSubmit} className="bg-blue-600 hover:bg-blue-500 text-white px-6 md:px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 italic transition-all active:scale-95">
                                     {t.cartAnfragen}
                                 </button>
                             </div>
@@ -350,7 +429,7 @@ function ServiceCard({ title, price, onSelect, t, cardClass, icon, isComingSoon 
                 </div>
                 {!isComingSoon && (
                     <motion.span
-                        key={price} // Sorgt für eine kleine Animation beim Preiswechsel
+                        key={price}
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-3xl font-black italic"
