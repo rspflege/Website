@@ -5,12 +5,15 @@ import Navbar from './components/Navbar';
 import Home from './Home';
 import Preise from './components/Prices';
 import LoginModal from './components/LoginModal';
+import Shop from './Shop';
 import { translations } from './translations';
 import { supabase } from './supabaseClient';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 };
 
@@ -26,6 +29,9 @@ export default function App() {
   });
 
   const location = useLocation();
+  
+  // Prüfen, ob wir uns im Shop befinden
+  const isShop = location.pathname === '/shop';
 
   useEffect(() => {
     localStorage.setItem('rs_pflege_cart', JSON.stringify(cart));
@@ -41,7 +47,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Aktuelle Übersetzung basierend auf lang auswählen
   const t = translations[lang] || translations.de;
 
   return (
@@ -49,42 +54,54 @@ export default function App() {
 
       <ScrollToTop />
 
-      <Navbar
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        lang={lang}
-        setLang={setLang}
-        setIsLoginOpen={setIsLoginOpen}
-        user={user}
-        cartCount={cart.length}
-        t={t} // Hier wird das Übersetzungsobjekt übergeben
-      />
+      {/* Navbar NUR anzeigen, wenn wir NICHT im Shop sind */}
+      {!isShop && (
+        <Navbar
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          lang={lang}
+          setLang={setLang}
+          setIsLoginOpen={setIsLoginOpen}
+          user={user}
+          cartCount={cart.length}
+          t={t}
+        />
+      )}
+
+      {/* Hinweis: Wenn deine Sidebar Teil der Navbar-Komponente ist, 
+          müssen wir sie entweder aus der Navbar extrahieren oder in der 
+          Navbar-Komponente selbst eine Ausnahme für den Shop hinzufügen.
+      */}
 
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
+
           <Route path="/" element={
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Home
-                darkMode={darkMode}
-                lang={lang}
-                cart={cart}
-                setCart={setCart}
-                t={t}
-              />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+              <Home darkMode={darkMode} lang={lang} cart={cart} setCart={setCart} t={t} />
             </motion.div>
           } />
 
           <Route path="/preise" element={
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Preise
-                darkMode={darkMode}
-                lang={lang}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+              <Preise darkMode={darkMode} lang={lang} cart={cart} setCart={setCart} t={t} />
+            </motion.div>
+          } />
+
+          <Route path="/shop" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+              <Shop 
+                darkMode={darkMode} 
+                setDarkMode={setDarkMode} // Darkmode-Switch für den Shop
+                lang={lang} 
+                setLang={setLang}
                 cart={cart}
-                setCart={setCart}
-                t={t} // Übergebe t auch hier sicherheitshalber
+                setCart={setCart} 
+                t={t} 
               />
             </motion.div>
           } />
+
         </Routes>
       </AnimatePresence>
 
@@ -95,6 +112,7 @@ export default function App() {
         lang={lang}
         translations={translations}
       />
+
     </div>
   );
 }
