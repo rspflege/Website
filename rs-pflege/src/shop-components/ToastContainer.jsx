@@ -41,7 +41,7 @@ const Toast = ({ toast, removeToast, darkMode }) => {
 
 export default function ToastContainer({ toasts, removeToast, darkMode }) {
     return (
-        <div className="fixed top-24 right-6 z-[100] pointer-events-none flex flex-col items-end">
+        <div className="fixed top-24 right-6 z-[100] pointer-events-none flex flex-col items-end ">
             <AnimatePresence>
                 {toasts.map(toast => (
                     <Toast key={toast.id} toast={toast} removeToast={removeToast} darkMode={darkMode} />
