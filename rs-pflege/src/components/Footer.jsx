@@ -5,10 +5,12 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Footer({ darkMode, lang }) {
     const navigate = useNavigate();
+
     const activeT = {
         ...(translations[lang] || translations.de),
         ...(shopTranslations[lang] || shopTranslations.de)
     };
+
     const year = new Date().getFullYear();
 
     const socialLinks = [
@@ -25,83 +27,57 @@ export default function Footer({ darkMode, lang }) {
         {
             name: "YouTube",
             url: "https://youtube.com/dein-kanal",
-            icon: "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 12 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+            icon: "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
         }
     ];
 
-    const footerLinks = [
-        { label: 'Services', href: '#services' },
-        { label: lang === 'de' ? 'Galerie' : 'Gallery', href: '#gallery' },
-        { label: 'Kontakt', href: '#kontakt' },
-        { label: 'Impressum', href: '/impressum' },
-        { label: lang === 'de' ? 'Datenschutz' : 'Privacy', href: '/datenschutz' },
-    ];
-
-    const isShop = typeof window !== 'undefined' && window.location.pathname.includes('shop');
-
     return (
-        <footer className={`relative pt-24 pb-12 px-6 border-t overflow-hidden transition-all duration-700 ${darkMode ? 'bg-black border-white/5' : 'bg-[#fafafa] border-black/5'}`}>
+        <footer className={`py-32 px-6 border-t transition-all duration-700 relative overflow-hidden ${darkMode ? 'bg-black border-white/[0.05]' : 'bg-[#fcfcfc] border-black/[0.05]'}`}>
 
-            {/* Background glows */}
-            <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-48 rounded-full blur-[100px] pointer-events-none ${darkMode ? 'bg-blue-600/6' : 'bg-blue-300/10'}`} />
+            {/* Ambient glow */}
+            <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-40 rounded-full blur-[100px] pointer-events-none ${darkMode ? 'bg-blue-600/[0.07]' : 'bg-blue-300/[0.12]'}`} />
 
-            <div className="max-w-[1400px] mx-auto flex flex-col items-center relative z-10">
+            <div className="max-w-[1600px] mx-auto flex flex-col items-center relative z-10">
 
-                {/* Big CTA Navigation Button */}
+                {/* Navigation button */}
                 <motion.button
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    onClick={() => navigate(isShop ? '/' : '/shop')}
-                    className="group flex flex-col items-center mb-20"
-                >
-                    <span className={`text-[10px] font-black uppercase tracking-[0.5em] mb-4 transition-all duration-500 group-hover:text-blue-500 ${darkMode ? 'text-white/15 group-hover:text-blue-400' : 'text-black/20'}`}>
-                        {isShop ? (activeT.mainHub || 'Zur Startseite') : (lang === 'de' ? 'Zum Shop' : 'To Shop')}
-                    </span>
-                    <div className={`relative transition-all duration-700 group-hover:scale-[1.02]`}>
-                        <span className={`text-5xl md:text-8xl lg:text-9xl font-black italic uppercase tracking-tighter transition-all duration-700 ${darkMode ? 'text-white group-hover:text-blue-500' : 'text-black group-hover:text-blue-600'}`}>
-                            RS-PFLEGE
-                        </span>
-                        <span className="text-blue-600 text-5xl md:text-8xl lg:text-9xl font-black italic uppercase tracking-tighter"> SHOP</span>
-                        {/* Underline animation */}
-                        <div className="absolute -bottom-2 left-0 h-[3px] w-0 group-hover:w-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-700" />
-                    </div>
-                </motion.button>
-
-                {/* Value Props Row */}
-                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="flex flex-wrap justify-center gap-3 mb-16"
+                    onClick={() => {
+                        const isShop = window.location.pathname.includes('shop');
+                        navigate(isShop ? '/' : '/shop');
+                    }}
+                    className="group flex flex-col items-center mb-20 relative"
                 >
-                    {[
-                        { icon: '✓', text: lang === 'de' ? '100% Handarbeit' : '100% Handcrafted' },
-                        { icon: '✓', text: lang === 'de' ? 'Vor-Ort Service' : 'On-location service' },
-                        { icon: '✓', text: lang === 'de' ? 'Premium Produkte' : 'Premium products' },
-                        { icon: '✓', text: lang === 'de' ? 'Ergebnis garantiert' : 'Result guaranteed' },
-                    ].map((v, i) => (
-                        <div key={i} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest border backdrop-blur-xl transition-all hover:border-blue-400/40 ${darkMode ? 'bg-white/3 border-white/8 text-white/40 hover:text-white/60' : 'bg-white/60 border-black/6 text-black/40 hover:text-black/60 shadow-sm'}`}>
-                            <span className="text-blue-500">{v.icon}</span>
-                            {v.text}
-                        </div>
-                    ))}
-                </motion.div>
+                    <span className={`text-[10px] font-black uppercase tracking-[0.5em] mb-4 transition-all duration-500 group-hover:text-blue-500 ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
+                        {window.location.pathname.includes('shop') ? activeT.mainHub : "Zum Shop"}
+                    </span>
+                    <span className={`text-5xl md:text-8xl font-black italic uppercase tracking-tighter transition-all duration-700 relative ${darkMode ? 'text-white group-hover:text-blue-600' : 'text-black group-hover:text-blue-600'}`}>
+                        RS-PFLEGE<span className="text-blue-600"> SHOP</span>
+                        {/* Underline sweep */}
+                        <span className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-700 ease-out" />
+                    </span>
+                </motion.button>
 
                 {/* Social Media */}
-                <div className="flex gap-4 mb-14">
-                    {socialLinks.map((social) => (
+                <div className="flex gap-5 mb-16">
+                    {socialLinks.map((social, i) => (
                         <motion.a
                             key={social.name}
                             href={social.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            whileHover={{ y: -4, scale: 1.08 }}
+                            initial={{ opacity: 0, y: 12 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.07 }}
+                            whileHover={{ y: -5, scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
-                            className={`p-4 rounded-2xl border transition-all duration-300 flex items-center justify-center backdrop-blur-xl ${
+                            className={`p-5 rounded-2xl border transition-all duration-300 flex items-center justify-center backdrop-blur-xl ${
                                 darkMode
-                                    ? 'bg-white/4 border-white/8 text-white/40 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/8'
-                                    : 'bg-white/70 border-black/6 text-black/40 hover:border-blue-400 hover:text-blue-600 shadow-sm hover:shadow-md'
+                                    ? 'bg-white/[0.04] border-white/[0.08] text-white/50 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/[0.08] hover:shadow-[0_0_20px_rgba(59,130,246,0.15)]'
+                                    : 'bg-white/60 border-black/[0.06] text-black/40 hover:border-blue-600/50 hover:text-blue-600 shadow-sm hover:shadow-md'
                             }`}
                         >
                             <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -111,35 +87,27 @@ export default function Footer({ darkMode, lang }) {
                     ))}
                 </div>
 
-                {/* Navigation Links */}
-                <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-12">
-                    {footerLinks.map((link) => (
+                {/* Nav Links */}
+                <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 mb-16 text-[10px] font-black uppercase tracking-[0.2em]">
+                    {[
+                        { label: 'Services', href: '#services' },
+                        { label: 'Galerie', href: '#gallery' },
+                        { label: 'Kontakt', href: '#kontakt' },
+                        { label: 'Impressum', href: '/impressum' },
+                    ].map((link) => (
                         <a
                             key={link.label}
                             href={link.href}
-                            className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-200 hover:text-blue-500 ${darkMode ? 'text-white/25' : 'text-black/30'}`}
+                            className={`hover:text-blue-500 transition-colors duration-200 ${darkMode ? 'text-white/30' : 'text-black/35'}`}
                         >
                             {link.label}
                         </a>
                     ))}
                 </div>
 
-                {/* Divider */}
-                <div className={`w-full h-px mb-8 ${darkMode ? 'bg-white/4' : 'bg-black/4'}`} />
-
-                {/* Copyright Row */}
-                <div className="flex flex-wrap items-center justify-center gap-6">
-                    <span className={`text-[9px] font-bold uppercase tracking-[0.4em] ${darkMode ? 'text-white/12' : 'text-black/15'}`}>
-                        © {year} RS PFLEGE
-                    </span>
-                    <span className={`text-[9px] ${darkMode ? 'text-white/8' : 'text-black/10'}`}>·</span>
-                    <span className={`text-[9px] font-bold uppercase tracking-[0.3em] ${darkMode ? 'text-white/12' : 'text-black/15'}`}>
-                        ALL RIGHTS RESERVED
-                    </span>
-                    <span className={`text-[9px] ${darkMode ? 'text-white/8' : 'text-black/10'}`}>·</span>
-                    <span className={`text-[9px] font-bold uppercase tracking-[0.3em] ${darkMode ? 'text-white/12' : 'text-black/15'}`}>
-                        VÖCKLABRUCK, AUSTRIA
-                    </span>
+                {/* Copyright */}
+                <div className={`text-[9px] font-bold uppercase tracking-[0.4em] ${darkMode ? 'text-white/[0.10]' : 'text-black/[0.12]'}`}>
+                    © {year} RS PFLEGE — ALL RIGHTS RESERVED.
                 </div>
             </div>
         </footer>
