@@ -2,13 +2,11 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-// Komponenten
 import ShopHero from './shop-components/ShopHero';
 import ProductCard from './shop-components/ProductCard';
 import ShopNavbar from './shop-components/ShopNavbar';
 import ToastContainer from './shop-components/ToastContainer';
 
-// NEU: Importiere die Übersetzungen
 import { translations } from './translations';
 import { shopTranslations } from './shopTranslations';
 
@@ -17,7 +15,7 @@ export default function Shop({ darkMode, setDarkMode, lang, setLang, cart, setCa
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCategory, setActiveCategory] = useState("all");
     const [toasts, setToasts] = useState([]);
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [scrollY, setScrollY] = useState(0);
     const searchInputRef = useRef(null);
 
     const activeT = {
@@ -44,36 +42,35 @@ export default function Shop({ darkMode, setDarkMode, lang, setLang, cart, setCa
     ];
 
     useEffect(() => {
-        const handleMouseMove = (e) => setMousePos({ x: e.clientX, y: e.clientY });
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
-
-    useEffect(() => {
+        const handleScroll = () => setScrollY(window.scrollY);
         const handleKeyDown = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 searchInputRef.current?.focus();
             }
         };
+        window.addEventListener('scroll', handleScroll, { passive: true });
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
     }, []);
 
     useEffect(() => {
         const prevTitle = document.title;
-        document.title = "RS SHOP | Official Store";
+        document.title = "RS Shop — Official Store";
         return () => { document.title = prevTitle; };
     }, []);
 
     const categories = useMemo(() => [
-        { name: "All", key: "all" },
+        { name: activeT.categories?.all || "All", key: "all" },
         { name: "Scents", key: "care" },
         { name: "Exterior", key: "accessories" },
         { name: "Interior", key: "service" },
         { name: "Merch", key: "merch" },
         { name: "Parts", key: "parts" }
-    ], []);
+    ], [lang]);
 
     const products = [
         { id: 's1', name: "Midnight Scents Tree", catKey: "care", price: 4.90, tag: "Top", img: "https://images.unsplash.com/photo-1595079676339-1534802ad6cf?auto=format&fit=crop&q=80&w=400" },
@@ -82,41 +79,32 @@ export default function Shop({ darkMode, setDarkMode, lang, setLang, cart, setCa
         { id: 's4', name: "Crystal Vision Glass", catKey: "service", price: 12.90, tag: null, img: "https://images.unsplash.com/photo-1552650272-b8a34e21bc4b?auto=format&fit=crop&q=80&w=400" },
     ];
 
-    const filteredProducts = useMemo(() => {
-        return products.filter(p => {
-            const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesCategory = activeCategory === "all" || p.catKey === activeCategory;
-            return matchesSearch && matchesCategory;
-        });
-    }, [searchQuery, activeCategory]);
+    const filteredProducts = useMemo(() => products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = activeCategory === "all" || p.catKey === activeCategory;
+        return matchesSearch && matchesCategory;
+    }), [searchQuery, activeCategory]);
 
     const addToCart = (p) => {
         const cartId = Math.random().toString(36).substr(2, 9);
-        const newItem = { ...p, cartId, addedAt: new Date().getTime() };
-        setCart(prev => [...prev, newItem]);
-
-        setToasts(prev => [...prev, {
-            id: cartId,
-            name: p.name,
-            img: p.img,
-            message: activeT.sent
-        }]);
+        setCart(prev => [...prev, { ...p, cartId, addedAt: Date.now() }]);
+        setToasts(prev => [...prev, { id: cartId, name: p.name, img: p.img, message: activeT.sent }]);
     };
 
     const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
     return (
-        <div className={`min-h-screen relative overflow-hidden transition-colors duration-700 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#fcfcfc] text-black'} selection:bg-blue-500`}>
-
+        <div
+            className={`min-h-screen relative transition-colors duration-700 ${darkMode ? 'bg-black text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
+            style={{ fontFamily: '-apple-system, "SF Pro Display", "Helvetica Neue", sans-serif' }}
+        >
+            {/* Ambient glow — whisper-quiet, Apple-style */}
             <div
-                className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-1000"
+                className="pointer-events-none fixed inset-0 z-0"
                 style={{
-                    background: `radial-gradient(800px circle at ${mousePos.x}px ${mousePos.y}px, 
-                        ${darkMode
-                            ? 'rgba(37, 99, 235, 0.25) 0%, rgba(37, 99, 235, 0.1) 30%, transparent 70%'
-                            : 'rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.04) 40%, transparent 80%'}
-                    )`,
-                    mixBlendMode: darkMode ? 'screen' : 'multiply',
+                    background: darkMode
+                        ? 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(10,132,255,0.06) 0%, transparent 60%)'
+                        : 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(0,122,255,0.04) 0%, transparent 60%)',
                 }}
             />
 
@@ -144,21 +132,50 @@ export default function Shop({ darkMode, setDarkMode, lang, setLang, cart, setCa
                     searchInputRef={searchInputRef}
                 />
 
-                <main className="max-w-[1600px] mx-auto px-6 md:px-12 pb-40 relative">
-                    <div className="mb-12 flex justify-between items-end">
-                        <div className="space-y-1">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Collection</h2>
-                            <p className="text-sm font-bold tracking-tight">
-                                {activeT.categories?.[activeCategory] || activeCategory}
-                                <span className="mx-2 opacity-30">/</span>
-                                {filteredProducts.length} {lang === 'en' ? 'Items' : (lang === 'de' ? 'Produkte' : 'Artikala')}
-                            </p>
-                        </div>
+                {/* ─── Category Chips — Apple pill scrollbar ─── */}
+                <div className="max-w-[1400px] mx-auto px-6 md:px-12 mb-10">
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                        {categories.map(cat => (
+                            <button
+                                key={cat.key}
+                                onClick={() => setActiveCategory(cat.key)}
+                                className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200 ${
+                                    activeCategory === cat.key
+                                        ? 'bg-[#0A84FF] text-white'
+                                        : darkMode
+                                            ? 'bg-white/[0.07] text-white/60 hover:text-white hover:bg-white/[0.11]'
+                                            : 'bg-black/[0.06] text-black/50 hover:text-black/80 hover:bg-black/[0.09]'
+                                }`}
+                            >
+                                {cat.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <main className="max-w-[1400px] mx-auto px-6 md:px-12 pb-40">
+
+                    {/* Result count — subtle metadata */}
+                    <div className="mb-8 flex items-center gap-3">
+                        <p className={`text-[13px] font-medium ${darkMode ? 'text-white/30' : 'text-black/30'}`}>
+                            {filteredProducts.length} {lang === 'en' ? 'results' : lang === 'de' ? 'Produkte' : 'Artikala'}
+                        </p>
+                        {(searchQuery || activeCategory !== 'all') && (
+                            <button
+                                onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
+                                className="text-[13px] font-medium text-[#0A84FF] hover:underline underline-offset-2"
+                            >
+                                {lang === 'en' ? 'Clear' : lang === 'de' ? 'Zurücksetzen' : 'Reset'}
+                            </button>
+                        )}
                     </div>
 
                     {filteredProducts.length > 0 ? (
-                        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-10 gap-y-16">
-                            <AnimatePresence mode='popLayout'>
+                        <motion.div
+                            layout
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        >
+                            <AnimatePresence mode="popLayout">
                                 {filteredProducts.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -171,60 +188,76 @@ export default function Shop({ darkMode, setDarkMode, lang, setLang, cart, setCa
                             </AnimatePresence>
                         </motion.div>
                     ) : (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-40 text-center">
-                            <p className="text-4xl font-black italic opacity-10 uppercase tracking-tighter">
-                                {lang === 'en' ? "No results found" : (lang === 'de' ? "Keine Ergebnisse" : "Nema rezultata")}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="py-40 flex flex-col items-center gap-4"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"
+                                className={`w-12 h-12 ${darkMode ? 'text-white/15' : 'text-black/15'}`}>
+                                <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" strokeLinecap="round"/>
+                            </svg>
+                            <p className={`text-[17px] font-medium ${darkMode ? 'text-white/25' : 'text-black/25'}`}>
+                                {lang === 'en' ? 'No results' : lang === 'de' ? 'Keine Ergebnisse' : 'Nema rezultata'}
                             </p>
                             <button
-                                onClick={() => { setSearchQuery(""); setActiveCategory("all") }}
-                                className="mt-4 text-blue-500 text-[10px] font-black uppercase tracking-widest hover:underline"
+                                onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
+                                className="text-[14px] font-medium text-[#0A84FF] hover:underline underline-offset-2"
                             >
-                                {lang === 'en' ? "Reset Filter" : (lang === 'de' ? "Zurücksetzen" : "Resetuj")}
+                                {lang === 'en' ? 'Reset filter' : lang === 'de' ? 'Filter zurücksetzen' : 'Resetuj filter'}
                             </button>
                         </motion.div>
                     )}
                 </main>
 
-                <footer className={`py-32 border-t ${darkMode ? 'border-white/5' : 'border-black/5'} relative`}>
-                    <div className="max-w-[1600px] mx-auto px-6 flex flex-col items-center">
+                {/* ─── Footer ─── */}
+                <footer className={`pt-20 pb-14 border-t ${darkMode ? 'border-white/[0.06]' : 'border-black/[0.06]'}`}>
+                    <div className="max-w-[1400px] mx-auto px-6 md:px-12 flex flex-col items-center gap-10">
 
-
-
-                        {/* NAV BUTTON */}
-                        <button onClick={() => navigate('/')} className="group flex flex-col items-center">
-                            <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-20 group-hover:opacity-100 group-hover:text-blue-500 transition-all duration-500 mb-4">
+                        {/* Wordmark — clean, confident */}
+                        <button
+                            onClick={() => navigate('/')}
+                            className="group flex flex-col items-center gap-1.5"
+                        >
+                            <span className={`text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors ${
+                                darkMode ? 'text-white/20 group-hover:text-[#0A84FF]' : 'text-black/20 group-hover:text-[#0071E3]'
+                            }`}>
                                 {activeT.mainHub}
                             </span>
-                            <span className={`text-5xl md:text-8xl font-black italic uppercase tracking-tighter transition-all duration-700 ${darkMode ? 'text-white group-hover:text-blue-600' : 'text-black group-hover:text-blue-600'}`}>
-                                RS-PFLEGE<span className="text-blue-600">.</span>AT
+                            <span className={`text-[38px] md:text-[54px] font-semibold tracking-tight leading-none transition-colors ${
+                                darkMode ? 'text-white/70 group-hover:text-white' : 'text-[#1d1d1f]/70 group-hover:text-[#1d1d1f]'
+                            }`}>
+                                RS-Pflege<span className="text-[#0A84FF]">.</span>
                             </span>
                         </button>
 
-                        <div className={`mt-5 text-[9px] font-bold uppercase tracking-[0.4em] ${darkMode ? 'text-white/10' : 'text-black/10'}`}>
-                            © {new Date().getFullYear()} RS PFLEGE — ALL RIGHTS RESERVED.
-                        </div>
-
-                        {/* SOCIAL MEDIA ICONS */}
-                        <div className="mt-16 flex gap-6 mb-16">
-                            {socialLinks.map((social) => (
+                        {/* Social icons — minimal, Apple-style */}
+                        <div className="flex gap-3">
+                            {socialLinks.map(social => (
                                 <motion.a
                                     key={social.name}
                                     href={social.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    whileHover={{ y: -5, scale: 1.1 }}
-                                    className={`p-5 rounded-2xl border transition-all duration-300 flex items-center justify-center
-                                        ${darkMode
-                                            ? 'bg-white/5 border-white/10 text-white hover:border-blue-500 hover:text-blue-500'
-                                            : 'bg-black/5 border-black/5 text-black hover:border-blue-600 hover:text-blue-600'
-                                        }`}
+                                    whileHover={{ y: -2 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-200 ${
+                                        darkMode
+                                            ? 'border-white/[0.10] text-white/40 hover:text-white hover:border-white/20'
+                                            : 'border-black/[0.10] text-black/40 hover:text-[#1d1d1f] hover:border-black/20'
+                                    }`}
                                 >
-                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                    <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24">
                                         <path d={social.icon} />
                                     </svg>
                                 </motion.a>
                             ))}
                         </div>
+
+                        {/* Legal line */}
+                        <p className={`text-[12px] font-medium ${darkMode ? 'text-white/15' : 'text-black/15'}`}>
+                            © {new Date().getFullYear()} RS Pflege — Alle Rechte vorbehalten.
+                        </p>
                     </div>
                 </footer>
             </div>

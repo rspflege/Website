@@ -6,17 +6,14 @@ export default function AdminPanel({ darkMode }) {
     const [orders, setOrders] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'tickets'
+    const [activeTab, setActiveTab] = useState('orders');
 
     useEffect(() => {
         fetchAdminData();
-
-        // Realtime Subscription: Sofortige Updates bei neuen Verkäufen/Tickets
         const ordersSub = supabase.channel('admin_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAdminData)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAdminData)
             .subscribe();
-
         return () => supabase.removeChannel(ordersSub);
     }, []);
 
@@ -24,7 +21,6 @@ export default function AdminPanel({ darkMode }) {
         setLoading(true);
         const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
         const { data: ticketsData } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-
         if (ordersData) setOrders(ordersData);
         if (ticketsData) setTickets(ticketsData);
         setLoading(false);
@@ -36,90 +32,295 @@ export default function AdminPanel({ darkMode }) {
         }
     };
 
-    const totalRevenue = orders.reduce((sum, order) => sum + order.amount, 0);
+    const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0);
+    const newTickets = tickets.filter(t => t.status === 'neu').length;
 
-    const glassStyle = darkMode
-        ? "bg-[#0A0A0A]/80 border-white/10 text-white"
-        : "bg-white/80 border-black/5 text-black";
+    const sf = `font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif`;
 
-    if (loading) return <div className="h-screen flex items-center justify-center font-black animate-pulse">LOADING TERMINAL...</div>;
+    // Apple-style loading screen
+    if (loading) return (
+        <div
+            className={`h-screen flex flex-col items-center justify-center gap-4 ${darkMode ? 'bg-black' : 'bg-[#f5f5f7]'}`}
+            style={{ fontFamily: '-apple-system, "SF Pro Display", sans-serif' }}
+        >
+            <div className="relative w-12 h-12">
+                <div className={`absolute inset-0 rounded-full border-2 ${darkMode ? 'border-white/10' : 'border-black/8'}`} />
+                <div
+                    className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 animate-spin"
+                    style={{ animationDuration: '0.9s', animationTimingFunction: 'cubic-bezier(0.4,0,0.6,1)' }}
+                />
+            </div>
+            <p className={`text-[13px] font-medium tracking-wider ${darkMode ? 'text-white/30' : 'text-black/30'}`}>
+                Lädt…
+            </p>
+        </div>
+    );
 
     return (
-        <div className={`min-h-screen p-8 pt-24 ${darkMode ? 'bg-black text-white' : 'bg-gray-50 text-black'}`}>
-            <div className="max-w-7xl mx-auto">
+        <div
+            className={`min-h-screen transition-colors duration-700 ${darkMode ? 'bg-black text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
+            style={{ fontFamily: '-apple-system, "SF Pro Display", "Helvetica Neue", sans-serif' }}
+        >
+            <div className="max-w-6xl mx-auto px-6 md:px-10 pt-28 pb-20">
 
-                {/* HEADER STATS */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    <StatCard title="Gesamtumsatz" value={`${totalRevenue.toFixed(2)}€`} color="text-blue-600" darkMode={darkMode} />
-                    <StatCard title="Bestellungen" value={orders.length} color="text-purple-600" darkMode={darkMode} />
-                    <StatCard title="Offene Tickets" value={tickets.filter(t => t.status === 'neu').length} color="text-orange-500" darkMode={darkMode} />
+                {/* ─── Page Title ─── */}
+                <div className="mb-10">
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] mb-1.5 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>
+                        RS Pflege
+                    </p>
+                    <h1 className={`text-[34px] font-semibold tracking-tight leading-none ${darkMode ? 'text-white' : 'text-[#1d1d1f]'}`}>
+                        Übersicht
+                    </h1>
                 </div>
 
-                {/* TABS */}
-                <div className="flex gap-4 mb-8">
-                    {['orders', 'tickets'].map(tab => (
+                {/* ─── Stat Cards — Apple "Summary" row ─── */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+                    <StatCard
+                        label="Gesamtumsatz"
+                        value={`€${totalRevenue.toFixed(2)}`}
+                        accent="text-[#0A84FF]"
+                        darkMode={darkMode}
+                        icon={
+                            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 opacity-60" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round"/>
+                            </svg>
+                        }
+                    />
+                    <StatCard
+                        label="Bestellungen"
+                        value={orders.length}
+                        accent="text-[#32D74B]"
+                        darkMode={darkMode}
+                        icon={
+                            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 opacity-60" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M9 12h6M9 16h6M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" strokeLinecap="round"/>
+                            </svg>
+                        }
+                    />
+                    <StatCard
+                        label="Offene Tickets"
+                        value={newTickets}
+                        accent="text-[#FF9F0A]"
+                        darkMode={darkMode}
+                        icon={
+                            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 opacity-60" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        }
+                    />
+                </div>
+
+                {/* ─── Segmented Control — Apple-style pill ─── */}
+                <div
+                    className={`inline-flex p-1 rounded-[11px] mb-8 ${darkMode ? 'bg-white/[0.07]' : 'bg-black/[0.06]'}`}
+                >
+                    {[
+                        { key: 'orders', label: 'Verkäufe' },
+                        { key: 'tickets', label: 'Support' },
+                    ].map(tab => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`relative px-5 py-2 rounded-[8px] text-[13px] font-medium transition-all duration-200 ${
+                                activeTab === tab.key
+                                    ? darkMode
+                                        ? 'bg-white/[0.12] text-white shadow-sm'
+                                        : 'bg-white text-[#1d1d1f] shadow-sm'
+                                    : darkMode
+                                        ? 'text-white/40 hover:text-white/70'
+                                        : 'text-black/40 hover:text-black/70'
+                            }`}
                         >
-                            {tab === 'orders' ? 'Verkäufe' : 'Support Tickets'}
+                            {tab.label}
+                            {tab.key === 'tickets' && newTickets > 0 && (
+                                <span className="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#FF9F0A] text-white text-[9px] font-bold">
+                                    {newTickets}
+                                </span>
+                            )}
                         </button>
                     ))}
                 </div>
 
-                {/* CONTENT AREA */}
-                <div className={`rounded-[2.5rem] border backdrop-blur-3xl p-8 ${glassStyle}`}>
+                {/* ─── Content ─── */}
+                <div
+                    className={`rounded-2xl overflow-hidden border ${
+                        darkMode
+                            ? 'bg-white/[0.04] border-white/[0.07]'
+                            : 'bg-white border-black/[0.06] shadow-sm'
+                    }`}
+                >
                     <AnimatePresence mode="wait">
                         {activeTab === 'orders' ? (
-                            <motion.div key="orders" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="text-[10px] font-black uppercase opacity-30 tracking-[0.2em] border-b border-current/10">
-                                            <th className="pb-4">Kunde</th>
-                                            <th className="pb-4">Betrag</th>
-                                            <th className="pb-4">PayPal ID</th>
-                                            <th className="pb-4">Datum</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-current/5">
-                                        {orders.map(order => (
-                                            <tr key={order.id} className="text-sm">
-                                                <td className="py-6 font-bold">{order.user_email}</td>
-                                                <td className="py-6 text-blue-600 font-black">{order.amount.toFixed(2)}€</td>
-                                                <td className="py-6 opacity-60 font-mono text-xs">{order.paypal_order_id}</td>
-                                                <td className="py-6 opacity-60">{new Date(order.created_at).toLocaleDateString()}</td>
+                            <motion.div
+                                key="orders"
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.2, ease: [0.4,0,0.2,1] }}
+                            >
+                                {orders.length === 0 ? (
+                                    <EmptyState label="Keine Bestellungen" darkMode={darkMode} />
+                                ) : (
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className={`border-b text-[11px] font-semibold uppercase tracking-[0.14em]
+                                                ${darkMode ? 'border-white/[0.06] text-white/25' : 'border-black/[0.06] text-black/30'}`}>
+                                                <th className="text-left px-6 py-4 font-semibold">Kunde</th>
+                                                <th className="text-left px-6 py-4 font-semibold">Betrag</th>
+                                                <th className="text-left px-6 py-4 font-semibold hidden md:table-cell">PayPal ID</th>
+                                                <th className="text-right px-6 py-4 font-semibold">Datum</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {orders.map((order, i) => (
+                                                <motion.tr
+                                                    key={order.id}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ delay: i * 0.04 }}
+                                                    className={`border-b last:border-0 transition-colors ${
+                                                        darkMode
+                                                            ? 'border-white/[0.04] hover:bg-white/[0.03]'
+                                                            : 'border-black/[0.04] hover:bg-black/[0.015]'
+                                                    }`}
+                                                >
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[11px] font-semibold shrink-0">
+                                                                {order.user_email?.[0]?.toUpperCase() || '?'}
+                                                            </div>
+                                                            <span className={`text-[14px] font-medium ${darkMode ? 'text-white/80' : 'text-[#1d1d1f]/80'}`}>
+                                                                {order.user_email}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-[14px] font-semibold text-[#0A84FF]">
+                                                            €{order.amount.toFixed(2)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 hidden md:table-cell">
+                                                        <span className={`text-[12px] font-mono px-2 py-1 rounded-md ${
+                                                            darkMode ? 'bg-white/[0.06] text-white/40' : 'bg-black/[0.04] text-black/40'
+                                                        }`}>
+                                                            {order.paypal_order_id}
+                                                        </span>
+                                                    </td>
+                                                    <td className={`px-6 py-4 text-right text-[13px] ${darkMode ? 'text-white/35' : 'text-black/35'}`}>
+                                                        {new Date(order.created_at).toLocaleDateString('de-AT', {
+                                                            day: '2-digit', month: 'short', year: 'numeric'
+                                                        })}
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
                             </motion.div>
                         ) : (
-                            <motion.div key="tickets" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-                                {tickets.map(ticket => (
-                                    <div key={ticket.id} className={`p-6 rounded-3xl border flex justify-between items-start ${darkMode ? 'bg-white/5 border-white/5' : 'bg-black/5 border-black/5'}`}>
-                                        <div>
-                                            <p className="text-[10px] font-black uppercase text-blue-600 mb-1">{ticket.user_email}</p>
-                                            <p className="text-sm font-medium leading-relaxed">{ticket.message}</p>
-                                            <p className="text-[9px] opacity-30 mt-3 uppercase tracking-tighter">{new Date(ticket.created_at).toLocaleString()}</p>
+                            <motion.div
+                                key="tickets"
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.2, ease: [0.4,0,0.2,1] }}
+                                className="divide-y"
+                                style={{ ['--tw-divide-opacity']: darkMode ? '0.06' : '0.06' }}
+                            >
+                                {tickets.length === 0 ? (
+                                    <EmptyState label="Keine Tickets" darkMode={darkMode} />
+                                ) : tickets.map((ticket, i) => (
+                                    <motion.div
+                                        key={ticket.id}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: i * 0.04 }}
+                                        className={`flex items-start gap-4 px-6 py-5 border-b last:border-0 group transition-colors ${
+                                            darkMode
+                                                ? 'border-white/[0.05] hover:bg-white/[0.02]'
+                                                : 'border-black/[0.05] hover:bg-black/[0.01]'
+                                        }`}
+                                    >
+                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-[12px] font-semibold shrink-0 mt-0.5">
+                                            {ticket.user_email?.[0]?.toUpperCase() || '?'}
                                         </div>
-                                        <button onClick={() => deleteTicket(ticket.id)} className="text-red-500 hover:bg-red-500/10 p-2 rounded-xl transition-all">✕</button>
-                                    </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <p className={`text-[12px] font-semibold ${darkMode ? 'text-white/60' : 'text-black/50'}`}>
+                                                    {ticket.user_email}
+                                                </p>
+                                                {ticket.status === 'neu' && (
+                                                    <span className="px-1.5 py-0.5 rounded-md bg-[#FF9F0A]/15 text-[#FF9F0A] text-[10px] font-semibold uppercase tracking-wide">
+                                                        Neu
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className={`text-[14px] leading-relaxed ${darkMode ? 'text-white/80' : 'text-[#1d1d1f]/80'}`}>
+                                                {ticket.message}
+                                            </p>
+                                            <p className={`text-[12px] mt-2 ${darkMode ? 'text-white/25' : 'text-black/25'}`}>
+                                                {new Date(ticket.created_at).toLocaleString('de-AT', {
+                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                })}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => deleteTicket(ticket.id)}
+                                            className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 ${
+                                                darkMode
+                                                    ? 'text-red-400/60 hover:text-red-400 hover:bg-red-500/10'
+                                                    : 'text-red-500/50 hover:text-red-500 hover:bg-red-500/08'
+                                            }`}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4">
+                                                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/>
+                                            </svg>
+                                        </button>
+                                    </motion.div>
                                 ))}
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
+
             </div>
         </div>
     );
 }
 
-function StatCard({ title, value, color, darkMode }) {
+// ─── Stat Card — Apple-style metric tile ─────────────────────────────────────
+function StatCard({ label, value, accent, icon, darkMode }) {
     return (
-        <div className={`p-8 rounded-[2rem] border transition-all ${darkMode ? 'bg-[#0A0A0A]/50 border-white/5' : 'bg-white border-black/5 shadow-xl'}`}>
-            <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-2">{title}</p>
-            <p className={`text-4xl font-black italic tracking-tighter ${color}`}>{value}</p>
+        <div
+            className={`rounded-2xl p-5 flex flex-col gap-4 border transition-colors ${
+                darkMode
+                    ? 'bg-white/[0.04] border-white/[0.07]'
+                    : 'bg-white border-black/[0.06] shadow-sm'
+            }`}
+        >
+            <div className={`${darkMode ? 'text-white/40' : 'text-black/40'}`}>
+                {icon}
+            </div>
+            <div>
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] mb-1 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>
+                    {label}
+                </p>
+                <p className={`text-[28px] font-semibold tracking-tight leading-none ${accent}`}>
+                    {value}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+function EmptyState({ label, darkMode }) {
+    return (
+        <div className={`py-20 flex flex-col items-center gap-3 ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="w-10 h-10">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" strokeLinecap="round"/>
+            </svg>
+            <p className="text-[13px] font-medium">{label}</p>
         </div>
     );
 }

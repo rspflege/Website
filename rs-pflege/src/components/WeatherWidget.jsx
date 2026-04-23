@@ -1,29 +1,24 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
+const sf = { fontFamily: '-apple-system, "SF Pro Text", "Helvetica Neue", sans-serif' };
+
 export default function WeatherWidget({ darkMode, lang = 'de' }) {
     const [weather, setWeather] = useState(null);
-    const [city, setCity] = useState("Vöcklabruck");
+    const [city, setCity] = useState('Vöcklabruck');
 
-    // Lokale Übersetzungen direkt im Widget für maximale Performance
     const localT = {
-        de: { wash: "Waschtag", interior: "Innenreinigung", loc: "Standort" },
-        en: { wash: "Washing Day", interior: "Interior Day", loc: "Location" },
-        sq: { wash: "Ditë Larje", interior: "Pastrim Brendshëm", loc: "Vendi" }
+        de: { wash: 'Waschtag', interior: 'Innenreinigung', loc: 'Standort' },
+        en: { wash: 'Washing Day', interior: 'Interior Day', loc: 'Location' },
+        sq: { wash: 'Ditë Larje', interior: 'Pastrim Brendshëm', loc: 'Vendi' }
     };
-
     const t = localT[lang] || localT.de;
 
     useEffect(() => {
-        if ("geolocation" in navigator) {
+        if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const { latitude, longitude } = position.coords;
-                    await fetchWeatherData(latitude, longitude, true);
-                },
-                async () => {
-                    await fetchWeatherData(48.00, 13.65, false);
-                }
+                async (pos) => await fetchWeatherData(pos.coords.latitude, pos.coords.longitude, true),
+                async () => await fetchWeatherData(48.00, 13.65, false)
             );
         } else {
             fetchWeatherData(48.00, 13.65, false);
@@ -35,56 +30,47 @@ export default function WeatherWidget({ darkMode, lang = 'de' }) {
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
             const data = await res.json();
             setWeather(data.current_weather);
-
             if (isAuto) {
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                const geoData = await geoRes.json();
+                const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const geoData = await geo.json();
                 setCity(geoData.address.city || geoData.address.town || geoData.address.village || t.loc);
             }
-        } catch (err) {
-            console.error("Wetter-Ladefehler", err);
-        }
+        } catch (err) { /* silent fail */ }
     }
 
     if (!weather) return null;
 
-    // Vollautomatische Wetter-Erkennung
-    const getWeatherDetails = (code) => {
-        if (code === 0) return { icon: "☀️", label: t.wash };
-        if (code <= 3) return { icon: "⛅", label: t.wash };
-        if (code <= 48) return { icon: "🌫️", label: t.interior };
-        if (code <= 67) return { icon: "🌧️", label: t.interior };
-        if (code <= 77) return { icon: "❄️", label: t.interior };
-        if (code <= 82) return { icon: "🌦️", label: t.interior };
-        if (code <= 99) return { icon: "⛈️", label: t.interior };
-        return { icon: "☁️", label: t.interior };
+    const getWeatherInfo = (code) => {
+        if (code === 0) return { emoji: '☀️', label: t.wash, good: true };
+        if (code <= 3) return { emoji: '⛅', label: t.wash, good: true };
+        if (code <= 48) return { emoji: '🌫️', label: t.interior, good: false };
+        if (code <= 67) return { emoji: '🌧️', label: t.interior, good: false };
+        if (code <= 77) return { emoji: '❄️', label: t.interior, good: false };
+        return { emoji: '⛈️', label: t.interior, good: false };
     };
 
-    const { icon, label } = getWeatherDetails(weather.weathercode);
-    const isGoodWeather = weather.weathercode <= 3;
+    const { emoji, label, good } = getWeatherInfo(weather.weathercode);
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 rounded-2xl border backdrop-blur-xl shadow-lg transition-all duration-700 ${darkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-white/30 border-black/5 text-black'
-                }`}
+            transition={{ delay: 0.3 }}
+            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-full border transition-all duration-300 ${
+                darkMode
+                    ? 'bg-black/40 border-white/[0.10] text-white'
+                    : 'bg-white/70 border-black/[0.08] text-[#1d1d1f]'
+            }`}
+            style={{ backdropFilter: 'blur(24px) saturate(180%)', ...sf }}
         >
-            {/* Infos - Auf Mobile leicht kompakter */}
-            <div className="flex flex-col items-start sm:items-end leading-tight">
-                <span className="text-[7px] sm:text-[9px] font-black uppercase tracking-tighter opacity-50">
+            <span className="text-[15px]">{emoji}</span>
+            <div className={`w-[0.5px] h-4 ${darkMode ? 'bg-white/15' : 'bg-black/12'}`} />
+            <div className="flex flex-col">
+                <span className={`text-[11px] font-medium leading-tight ${darkMode ? 'text-white/40' : 'text-black/35'}`}>
                     {city}
                 </span>
-                <span className={`text-[9px] sm:text-[10px] font-black italic whitespace-nowrap ${isGoodWeather ? 'text-blue-500' : 'text-amber-500'}`}>
-                    {label}
-                </span>
-            </div>
-
-            {/* Icon & Temp */}
-            <div className={`flex items-center gap-1.5 border-l pl-2 sm:pl-3 ${darkMode ? 'border-white/10' : 'border-black/10'}`}>
-                <span className="text-sm sm:text-base">{icon}</span>
-                <span className="text-[10px] sm:text-xs font-black italic">
-                    {Math.round(weather.temperature)}°
+                <span className={`text-[11px] font-semibold leading-tight ${good ? 'text-[#0A84FF]' : 'text-[#FF9F0A]'}`}>
+                    {Math.round(weather.temperature)}° · {label}
                 </span>
             </div>
         </motion.div>
