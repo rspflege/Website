@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Home from './Home';
 import Preise from './components/Prices';
 import LoginModal from './components/LoginModal';
 import Shop from './Shop';
+import AdminPanel from './AdminPanel';
 import { translations } from './translations';
 import { supabase } from './supabaseClient';
 
@@ -23,19 +24,38 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [user, setUser] = useState(null);
 
+  // 1. Warenkorb für Services (Home/Preise)
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem('rs_pflege_cart');
     return saved ? JSON.parse(saved) : [];
   });
 
-  const location = useLocation();
-  
-  // Prüfen, ob wir uns im Shop befinden
-  const isShop = location.pathname === '/shop';
+  // 2. Warenkorb für den Shop (NEU & GETRENNT)
+  const [shopCart, setShopCart] = useState(() => {
+    const saved = localStorage.getItem('rs_pflege_shop_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
 
+  const location = useLocation();
+  const isShop = location.pathname === '/shop';
+  const isAdminPage = location.pathname === '/admin';
+
+  const adminEmails = [
+    'spahiu.endrit09@hotmail.com',
+    'rspflege.office@gmail.com',
+    'rekicsead6@gmail.com'
+  ];
+
+  const isAdmin = user && adminEmails.includes(user.email);
+
+  // LocalStorage für beide Warenkörbe synchronisieren
   useEffect(() => {
     localStorage.setItem('rs_pflege_cart', JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('rs_pflege_shop_cart', JSON.stringify(shopCart));
+  }, [shopCart]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,8 +74,8 @@ export default function App() {
 
       <ScrollToTop />
 
-      {/* Navbar NUR anzeigen, wenn wir NICHT im Shop sind */}
-      {!isShop && (
+      {/* Die Haupt-Navbar zeigt NUR den Service-Cart an */}
+      {!isShop && !isAdminPage && (
         <Navbar
           darkMode={darkMode}
           setDarkMode={setDarkMode}
@@ -63,15 +83,10 @@ export default function App() {
           setLang={setLang}
           setIsLoginOpen={setIsLoginOpen}
           user={user}
-          cartCount={cart.length}
+          cartCount={cart.length} // Zeigt nur Service-Items
           t={t}
         />
       )}
-
-      {/* Hinweis: Wenn deine Sidebar Teil der Navbar-Komponente ist, 
-          müssen wir sie entweder aus der Navbar extrahieren oder in der 
-          Navbar-Komponente selbst eine Ausnahme für den Shop hinzufügen.
-      */}
 
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
@@ -90,16 +105,28 @@ export default function App() {
 
           <Route path="/shop" element={
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
-              <Shop 
-                darkMode={darkMode} 
-                setDarkMode={setDarkMode} // Darkmode-Switch für den Shop
-                lang={lang} 
+              <Shop
+                darkMode={darkMode}
+                setDarkMode={setDarkMode}
+                lang={lang}
                 setLang={setLang}
-                cart={cart}
-                setCart={setCart} 
-                t={t} 
+                cart={shopCart}    /* Übergibt den Shop-Warenkorb */
+                setCart={setShopCart} /* Nutzt den Shop-Setter */
+                user={user}
+                setIsLoginOpen={setIsLoginOpen}
+                t={t}
               />
             </motion.div>
+          } />
+
+          <Route path="/admin" element={
+            isAdmin ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <AdminPanel darkMode={darkMode} />
+              </motion.div>
+            ) : (
+              <Navigate to="/" replace />
+            )
           } />
 
         </Routes>

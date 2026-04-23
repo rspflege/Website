@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import WeatherWidget from '../components/WeatherWidget';
 import { translations } from '../translations';
 import { shopTranslations } from '../shopTranslations';
+import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 
 export default function ShopNavbar({
     categories,
@@ -25,6 +26,7 @@ export default function ShopNavbar({
     const [user, setUser] = useState(initialUser);
     const [supportMsg, setSupportMsg] = useState("");
     const [supportStatus, setSupportStatus] = useState(null);
+    const [checkoutStage, setCheckoutStage] = useState('idle'); // 'idle' | 'paypal'
     const navigate = useNavigate();
 
     const activeT = {
@@ -43,10 +45,8 @@ export default function ShopNavbar({
         { code: 'hr', name: 'Hrvatski' }, { code: 'sr', name: 'Serpski' }
     ];
 
-    // UPDATED: Bleibt im Menü und ändert nur die Sprache
     const changeLanguage = (code) => {
         setLang(code);
-        // setView('menu') entfernt, damit das Sprachmenü offen bleibt
     };
 
     useEffect(() => {
@@ -68,6 +68,24 @@ export default function ShopNavbar({
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setIsOpen(false);
+    };
+
+    // FUNKTION: Bestellung in Supabase speichern
+    const saveOrderToDatabase = async (details) => {
+        const { error } = await supabase.from('orders').insert([{
+            paypal_order_id: details.id,
+            user_email: user?.email || details.payer.email_address,
+            amount: subtotal,
+            items: cart, // Das komplette Array der Items speichern
+            status: 'paid'
+        }]);
+
+        if (!error) {
+            setCart([]); // Warenkorb leeren
+            setIsCartOpen(false);
+            setCheckoutStage('idle');
+            alert("Zahlung erfolgreich! Deine Bestellung wurde gespeichert.");
+        }
     };
 
     const sendSupportTicket = async () => {
@@ -138,7 +156,7 @@ export default function ShopNavbar({
 
             <AnimatePresence>
                 {(isOpen || isCartOpen) && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsOpen(false); setIsCartOpen(false); }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130]" />
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsOpen(false); setIsCartOpen(false); setCheckoutStage('idle'); }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130]" />
                 )}
 
                 {/* ACCESS TERMINAL (Sidebar) */}
@@ -151,10 +169,9 @@ export default function ShopNavbar({
                         <div className="flex items-center justify-between mb-8">
                             {view !== 'menu' ? (
                                 <motion.button
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
+                                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                                     onClick={() => setView('menu')}
-                                    className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2 hover:text-blue-400 transition-colors"
+                                    className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2"
                                 >
                                     ← {activeT.back}
                                 </motion.button>
@@ -176,7 +193,7 @@ export default function ShopNavbar({
                                                 <button onClick={handleLogout} className="w-full py-5 rounded-2xl bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">{activeT.logout}</button>
                                             </div>
                                         ) : (
-                                            <button onClick={() => { setIsLoginOpen(true); setIsOpen(false); }} className="w-full py-8 rounded-[2rem] bg-blue-600 text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl hover:scale-[1.02] transition-transform">{activeT.connectId}</button>
+                                            <button onClick={() => { setIsLoginOpen(true); setIsOpen(false); }} className="w-full py-8 rounded-[2rem] bg-blue-600 text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl">{activeT.connectId}</button>
                                         )}
 
                                         <button onClick={() => setView('settings')} className={`w-full p-8 rounded-[2rem] border flex items-center justify-between group transition-all text-[11px] font-black uppercase tracking-widest ${darkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
@@ -200,29 +217,9 @@ export default function ShopNavbar({
                                     <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-2">
                                         <div className="grid grid-cols-1 gap-2">
                                             {languages.map((l) => (
-                                                <button
-                                                    key={l.code}
-                                                    onClick={() => changeLanguage(l.code)}
-                                                    className={`p-5 rounded-2xl text-left text-[10px] font-black uppercase transition-all relative overflow-hidden group ${lang === l.code ? 'text-white' : 'hover:bg-current/5'}`}
-                                                >
-                                                    <span className="relative z-10 flex items-center justify-between">
-                                                        {l.name}
-                                                        {lang === l.code && (
-                                                            <motion.span
-                                                                initial={{ scale: 0 }}
-                                                                animate={{ scale: 1 }}
-                                                                className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_white]"
-                                                            />
-                                                        )}
-                                                    </span>
-                                                    {/* Layout Animation für den Sprachwechsel */}
-                                                    {lang === l.code && (
-                                                        <motion.div
-                                                            layoutId="activeLangBG"
-                                                            className="absolute inset-0 bg-blue-600"
-                                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                                        />
-                                                    )}
+                                                <button key={l.code} onClick={() => changeLanguage(l.code)} className={`p-5 rounded-2xl text-left text-[10px] font-black uppercase transition-all relative overflow-hidden group ${lang === l.code ? 'text-white' : 'hover:bg-current/5'}`}>
+                                                    <span className="relative z-10 flex items-center justify-between">{l.name} {lang === l.code && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_white]" />}</span>
+                                                    {lang === l.code && <motion.div layoutId="activeLangBG" className="absolute inset-0 bg-blue-600" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
                                                 </button>
                                             ))}
                                         </div>
@@ -232,7 +229,7 @@ export default function ShopNavbar({
                                 {view === 'support' && (
                                     <motion.div key="support" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                                         <textarea value={supportMsg} onChange={(e) => setSupportMsg(e.target.value)} className={`w-full h-40 rounded-[2rem] p-6 text-sm resize-none outline-none border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`} placeholder={activeT.supportMsg} />
-                                        <button onClick={sendSupportTicket} disabled={supportStatus === 'sending'} className="w-full py-6 bg-blue-600 text-white rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                                        <button onClick={sendSupportTicket} disabled={supportStatus === 'sending'} className="w-full py-6 bg-blue-600 text-white rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest">
                                             {supportStatus === 'sending' ? '...' : (supportStatus === 'success' ? activeT.sent : activeT.sendTicket)}
                                         </button>
                                     </motion.div>
@@ -252,8 +249,9 @@ export default function ShopNavbar({
                     >
                         <div className="flex justify-between items-center mb-12">
                             <h2 className="text-3xl font-black italic uppercase tracking-tighter">{activeT.inventory} <span className="text-blue-600">[{cartCount}]</span></h2>
-                            <button onClick={() => setIsCartOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-current/10 transition-colors">✕</button>
+                            <button onClick={() => { setIsCartOpen(false); setCheckoutStage('idle'); }} className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-current/10 transition-colors">✕</button>
                         </div>
+
                         <div className="flex-grow overflow-y-auto space-y-4 pr-1">
                             {cart.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center opacity-10 py-20">
@@ -274,13 +272,68 @@ export default function ShopNavbar({
                                 ))
                             )}
                         </div>
+
                         {cart.length > 0 && (
                             <div className="mt-8 pt-8 border-t border-current/10">
                                 <div className="flex justify-between items-end mb-8 px-2">
                                     <span className="text-[10px] font-black uppercase opacity-40">{activeT.subtotal}</span>
                                     <span className="text-4xl font-black italic text-blue-600">{subtotal.toFixed(2)}€</span>
                                 </div>
-                                <button className="w-full py-6 rounded-[1.8rem] bg-blue-600 text-white text-[12px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all">{activeT.checkout}</button>
+
+                                <AnimatePresence mode="wait">
+                                    {checkoutStage === 'idle' ? (
+                                        <motion.button
+                                            key="btn-checkout"
+                                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                            onClick={() => setCheckoutStage('paypal')}
+                                            className="w-full py-6 rounded-[1.8rem] bg-blue-600 text-white text-[12px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                        >
+                                            {activeT.checkout}
+                                        </motion.button>
+                                    ) : (
+                                        <motion.div
+                                            key="paypal-container"
+                                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                                            className="w-full p-4 bg-white/5 rounded-[2rem] border border-white/10"
+                                        >
+                                            <PayPalScriptProvider options={{
+                                                "client-id": "AVDZG2v4f-9BSN4CD5uIUMv_MZWkA0b42M8aCYeB5I8C4W074YO1jOw_cmux7iVXQJTZ9ldCEunMyZ2i",
+                                                currency: "EUR",
+                                                components: "buttons", // Wichtig für Smart Buttons
+                                                intent: "capture"
+                                            }}>
+                                                <PayPalButtons
+                                                    style={{
+                                                        layout: "vertical",
+                                                        shape: "pill",
+                                                        label: "checkout"
+                                                    }}
+                                                    // Hier aktivieren wir die Kreditkarten-Option explizit nicht (PayPal macht das automatisch nach Region)
+                                                    // Aber wir stellen sicher, dass alle "Funding"-Quellen erlaubt sind
+                                                    createOrder={(data, actions) => {
+                                                        return actions.order.create({
+                                                            purchase_units: [{
+                                                                amount: {
+                                                                    value: subtotal.toFixed(2).toString() // Sicherstellen, dass es 2 Dezimalstellen hat
+                                                                }
+                                                            }]
+                                                        });
+                                                    }}
+                                                    onApprove={(data, actions) => {
+                                                        return actions.order.capture().then((details) => {
+                                                            saveOrderToDatabase(details);
+                                                        });
+                                                    }}
+                                                    onError={(err) => {
+                                                        console.error("PayPal Error:", err);
+                                                        alert("Es gab ein Problem mit der Zahlung. Bitte versuche es erneut.");
+                                                    }}
+                                                />
+                                            </PayPalScriptProvider>
+                                            <button onClick={() => setCheckoutStage('idle')} className="w-full mt-4 text-[9px] font-black uppercase opacity-40 hover:opacity-100 transition-all">Abbrechen</button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         )}
                     </motion.div>

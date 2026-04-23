@@ -1,8 +1,17 @@
 import { translations } from '../translations';
+import { shopTranslations } from '../shopTranslations';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 export default function Footer({ darkMode, lang }) {
-    const t = translations[lang] || translations.de;
+    const navigate = useNavigate();
+
+    // Kombinierte Übersetzungen für die Texte
+    const activeT = {
+        ...(translations[lang] || translations.de),
+        ...(shopTranslations[lang] || shopTranslations.de)
+    };
+
     const year = new Date().getFullYear();
 
     const socialLinks = [
@@ -24,25 +33,31 @@ export default function Footer({ darkMode, lang }) {
     ];
 
     return (
-        <footer className={`py-20 px-6 border-t transition-all duration-700 ${darkMode ? 'bg-black border-white/5' : 'bg-white border-black/5'}`}>
-            <div className="max-w-7xl mx-auto flex flex-col items-center">
+        <footer className={`py-32 px-6 border-t transition-all duration-700 ${darkMode ? 'bg-black border-white/5' : 'bg-[#fcfcfc] border-black/5'}`}>
+            <div className="max-w-[1600px] mx-auto flex flex-col items-center">
 
-                {/* Logo / Name */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    className="mb-12 text-center"
+                {/* NAVIGATION BUTTON (Wechselt zwischen Home und Shop) */}
+                <motion.button
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    onClick={() => {
+                        // Wenn wir im Shop sind, geh zur Home, sonst zum Shop
+                        const isShop = window.location.pathname.includes('shop');
+                        navigate(isShop ? '/' : '/shop');
+                    }}
+                    className="group flex flex-col items-center mb-20"
                 >
-                    <h3 className={`text-2xl font-black uppercase italic tracking-tighter ${darkMode ? 'text-white' : 'text-black'}`}>
-                        RS <span className="text-blue-600">PFLEGE</span>
-                    </h3>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.5em] mt-2 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>
-                        Detailing Excellence
-                    </p>
-                </motion.div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-20 group-hover:opacity-100 group-hover:text-blue-500 transition-all duration-500 mb-4">
+                        {window.location.pathname.includes('shop') ? activeT.mainHub : "Zum Shop"}
+                    </span>
+                    <span className={`text-5xl md:text-8xl font-black italic uppercase tracking-tighter transition-all duration-700 ${darkMode ? 'text-white group-hover:text-blue-600' : 'text-black group-hover:text-blue-600'}`}>
+                        RS-PFLEGE<span className="text-blue-600"> SHOP</span>
+                    </span>
+                </motion.button>
 
-                {/* Social Media Icons */}
-                <div className="flex gap-8 mb-16">
+                {/* Social Media */}
+                <div className="flex gap-6 mb-16">
                     {socialLinks.map((social) => (
                         <motion.a
                             key={social.name}
@@ -50,30 +65,29 @@ export default function Footer({ darkMode, lang }) {
                             target="_blank"
                             rel="noopener noreferrer"
                             whileHover={{ y: -5, scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className={`p-4 rounded-2xl border transition-all duration-300 flex items-center justify-center
+                            className={`p-5 rounded-2xl border transition-all duration-300 flex items-center justify-center
                                 ${darkMode
-                                    ? 'bg-white/5 border-white/10 text-white hover:border-blue-500 hover:text-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]'
+                                    ? 'bg-white/5 border-white/10 text-white hover:border-blue-500 hover:text-blue-500'
                                     : 'bg-black/5 border-black/5 text-black hover:border-blue-600 hover:text-blue-600'
                                 }`}
                         >
-                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                                 <path d={social.icon} />
                             </svg>
                         </motion.a>
                     ))}
                 </div>
 
-                {/* Navigation Links (Quick Links) */}
-                <div className="flex flex-wrap justify-center gap-x-12 gap-y-4 mb-16 text-[10px] font-black uppercase tracking-widest">
-                    <a href="#services" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/50' : 'text-black/50'}`}>Services</a>
-                    <a href="#gallery" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/50' : 'text-black/50'}`}>Galerie</a>
-                    <a href="#kontakt" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/50' : 'text-black/50'}`}>Kontakt</a>
-                    <a href="/impressum" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/50' : 'text-black/50'}`}>Impressum</a>
+                {/* Rechtliches & Links */}
+                <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 mb-16 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <a href="#services" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/40' : 'text-black/40'}`}>Services</a>
+                    <a href="#gallery" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/40' : 'text-black/40'}`}>Galerie</a>
+                    <a href="#kontakt" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/40' : 'text-black/40'}`}>Kontakt</a>
+                    <a href="/impressum" className={`hover:text-blue-500 transition-colors ${darkMode ? 'text-white/40' : 'text-black/40'}`}>Impressum</a>
                 </div>
 
                 {/* Copyright */}
-                <div className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
+                <div className={`text-[9px] font-bold uppercase tracking-[0.4em] ${darkMode ? 'text-white/10' : 'text-black/10'}`}>
                     © {year} RS PFLEGE — ALL RIGHTS RESERVED.
                 </div>
             </div>
