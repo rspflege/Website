@@ -11,8 +11,6 @@ const ADMIN_EMAILS = [
     'rekicsead6@gmail.com'
 ];
 
-const sf = { fontFamily: '-apple-system, "SF Pro Display", "Helvetica Neue", sans-serif' };
-
 export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, setIsLoginOpen, user, cartCount, t }) {
     const [isOpen, setIsOpen] = useState(false);
     const [view, setView] = useState('menu');
@@ -120,41 +118,39 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
     };
 
     const languages = [
-        { code: 'de', name: 'Deutsch', flag: '🇩🇪' }, { code: 'en', name: 'English', flag: '🇬🇧' },
-        { code: 'bs', name: 'Bosanski', flag: '🇧🇦' }, { code: 'sq', name: 'Shqip', flag: '🇦🇱' },
-        { code: 'it', name: 'Italiano', flag: '🇮🇹' }, { code: 'es', name: 'Español', flag: '🇪🇸' },
-        { code: 'tr', name: 'Türkçe', flag: '🇹🇷' }, { code: 'fr', name: 'Français', flag: '🇫🇷' },
-        { code: 'hr', name: 'Hrvatski', flag: '🇭🇷' }, { code: 'sr', name: 'Srpski', flag: '🇷🇸' }
+        { code: 'de', name: 'Deutsch' }, { code: 'en', name: 'English' },
+        { code: 'bs', name: 'Bosanski' }, { code: 'sq', name: 'Shqip' },
+        { code: 'it', name: 'Italiano' }, { code: 'es', name: 'Español' },
+        { code: 'tr', name: 'Türkçe' }, { code: 'fr', name: 'Français' },
+        { code: 'hr', name: 'Hrvatski' }, { code: 'sr', name: 'Srpski' }
     ];
 
-    // Glass style for floating elements
-    const glass = darkMode
-        ? 'bg-black/50 border-white/[0.10] text-white'
-        : 'bg-white/70 border-black/[0.08] text-[#1d1d1f]';
+    const glassBase = darkMode
+        ? 'bg-black/40 border-white/10 text-white shadow-2xl'
+        : 'bg-white/60 border-black/5 shadow-xl text-black';
 
-    const sidebarGlass = darkMode
-        ? 'bg-[#1c1c1e]/95 border-white/[0.10] text-white'
-        : 'bg-white/95 border-black/[0.07] text-[#1d1d1f]';
-
-    const NavItem = ({ id, label, isRoute = false }) => {
+    // Nav item — original exact style
+    const navItem = (id, label) => {
         const isActive = activeSection === id;
-        let linkPath = isRoute ? `/${id}` : `/#${id}`;
+        let linkPath = `/#${id}`;
         if (id === 'home') linkPath = '/';
 
-        const inner = (
-            <div className="relative px-4 py-2 rounded-full">
-                <span className={`relative z-10 text-[13px] font-medium transition-colors duration-200 ${isActive ? 'text-[#0A84FF]' : darkMode ? 'text-white/50 hover:text-white/80' : 'text-black/40 hover:text-black/70'}`}>
+        const content = (
+            <div className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${
+                isActive ? 'text-blue-500' : 'opacity-40 hover:opacity-100'
+            }`}>
+                <div className="flex items-center gap-1.5 whitespace-nowrap relative z-10">
                     {label}
                     {id === 'prices' && cartCount > 0 && (
-                        <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#0A84FF] text-white text-[9px] font-semibold">
+                        <span className="bg-blue-600 text-white text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center">
                             {cartCount}
                         </span>
                     )}
-                </span>
+                </div>
                 {isActive && (
                     <motion.div
-                        layoutId="activeTab"
-                        className={`absolute inset-0 rounded-full ${darkMode ? 'bg-white/[0.09]' : 'bg-black/[0.05]'}`}
+                        layoutId="activeDockTab"
+                        className="absolute inset-0 bg-blue-500/10 rounded-xl z-0"
                         transition={{ type: 'spring', bounce: 0.2, duration: 0.55 }}
                     />
                 )}
@@ -163,83 +159,94 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
 
         if (id === 'prices') {
             return (
-                <button onClick={() => setShowPriceMenu(!showPriceMenu)}>
-                    {inner}
+                <button key={id} onClick={() => setShowPriceMenu(!showPriceMenu)} className="relative">
+                    {content}
                 </button>
             );
         }
+
         return (
-            <Link to={linkPath} onClick={(e) => handleNavClick(e, id)}>
-                {inner}
+            <Link key={id} to={linkPath} onClick={(e) => handleNavClick(e, id)}>
+                {content}
             </Link>
         );
     };
 
     return (
-        <div style={sf}>
-            {/* — Top-left: Dark mode toggle + Weather — */}
-            <div className="fixed top-5 left-5 z-[110] flex items-center gap-2">
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
+        <>
+            {/* Dark mode toggle + weather */}
+            <div className="fixed top-6 left-6 z-[110] flex items-center gap-2 sm:gap-3">
+                <button
                     onClick={() => setDarkMode(!darkMode)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-200 ${glass}`}
-                    style={{ backdropFilter: 'blur(24px) saturate(180%)' }}
+                    className={`apple-glass p-3.5 sm:p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}
                 >
                     {darkMode ? (
-                        <svg className="w-4 h-4 text-[#FFD60A]" fill="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="4.5"/>
-                            <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="5" />
+                            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                     ) : (
-                        <svg className="w-4 h-4 text-[#0071E3]" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
                         </svg>
                     )}
-                </motion.button>
+                </button>
                 <WeatherWidget darkMode={darkMode} lang={lang} />
             </div>
 
-            {/* — Top-right: Menu trigger — */}
-            <div className="fixed top-5 right-5 z-[150]">
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
+            {/* Hamburger — shows 3 lines when closed, X when open. No X rendered until isOpen */}
+            <div className="fixed top-6 right-6 z-[150]">
+                <button
                     onClick={() => { setIsOpen(!isOpen); if (!isOpen) setView('menu'); }}
-                    className={`relative w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-200 ${glass}`}
-                    style={{ backdropFilter: 'blur(24px) saturate(180%)' }}
+                    className={`relative apple-glass p-4 rounded-2xl active:scale-90 transition-all border backdrop-blur-md ${glassBase}`}
                 >
-                    {isAdmin && tickets.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-semibold flex items-center justify-center border border-white/20">
+                    {isAdmin && tickets.length > 0 && !isOpen && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-white animate-bounce shadow-lg">
                             {tickets.length}
                         </span>
                     )}
-                    <div className="w-4 h-3 flex flex-col justify-between">
-                        <div className={`h-[1.5px] bg-current rounded-full transition-all duration-300 ${isOpen ? 'rotate-45 translate-y-[5px]' : ''}`} />
-                        <div className={`h-[1.5px] bg-current rounded-full transition-all duration-300 ${isOpen ? 'opacity-0' : 'w-[75%]'}`} />
-                        <div className={`h-[1.5px] bg-current rounded-full transition-all duration-300 ${isOpen ? '-rotate-45 -translate-y-[5px]' : 'w-[60%]'}`} />
+                    <div className="w-6 h-5 flex flex-col justify-between items-end relative">
+                        <motion.div
+                            animate={isOpen ? { rotate: 45, y: 9, width: '100%' } : { rotate: 0, y: 0, width: '100%' }}
+                            transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                            className="h-0.5 bg-current rounded-full origin-center"
+                        />
+                        <motion.div
+                            animate={isOpen ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
+                            transition={{ duration: 0.18 }}
+                            className="h-0.5 bg-current rounded-full"
+                            style={{ width: '66%' }}
+                        />
+                        <motion.div
+                            animate={isOpen ? { rotate: -45, y: -9, width: '100%' } : { rotate: 0, y: 0, width: '83%' }}
+                            transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                            className="h-0.5 bg-current rounded-full origin-center"
+                        />
                     </div>
-                </motion.button>
+                </button>
             </div>
 
-            {/* — Sidebar — */}
+            {/* Sidebar */}
             <AnimatePresence>
                 {isOpen && (
                     <>
                         <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            transition={{ duration: 0.25 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22 }}
                             onClick={() => setIsOpen(false)}
-                            className="fixed inset-0 bg-black/30 z-[130]"
-                            style={{ backdropFilter: 'blur(4px)' }}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[130]"
                         />
                         <motion.div
                             initial={{ x: '110%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '110%', opacity: 0 }}
-                            transition={{ type: 'spring', damping: 28, stiffness: 240 }}
-                            className={`fixed top-4 right-4 bottom-4 w-[300px] rounded-[28px] border z-[140] flex flex-col overflow-hidden ${sidebarGlass}`}
-                            style={{ backdropFilter: 'blur(40px) saturate(200%)' }}
+                            transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+                            className={`fixed top-4 right-4 bottom-4 w-full max-w-[340px] rounded-[2.5rem] p-8 z-[140] flex flex-col border ${glassBase} backdrop-blur-3xl`}
                         >
-                            <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                            {/* Sidebar header — no X button here since the hamburger IS the toggle */}
+                            <div className="flex items-center justify-between mb-8 mt-10">
                                 <AnimatePresence mode="wait">
                                     {view !== 'menu' ? (
                                         <motion.button
@@ -247,13 +254,11 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                             initial={{ opacity: 0, x: -8 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: -8 }}
+                                            transition={{ duration: 0.18 }}
                                             onClick={() => setView('menu')}
-                                            className={`flex items-center gap-1.5 text-[13px] font-medium text-[#0A84FF]`}
+                                            className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2 hover:opacity-70 transition-opacity"
                                         >
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
-                                                <path d="M15 18l-6-6 6-6" strokeLinecap="round"/>
-                                            </svg>
-                                            {activeT.back}
+                                            ← {activeT.back}
                                         </motion.button>
                                     ) : (
                                         <motion.p
@@ -261,173 +266,169 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
-                                            className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-white/30' : 'text-black/30'}`}
+                                            className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500"
                                         >
-                                            RS Pflege
+                                            {user ? 'ACCOUNT' : 'RS ACCOUNT'}
                                         </motion.p>
                                     )}
                                 </AnimatePresence>
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className={`w-7 h-7 rounded-full flex items-center justify-center ${darkMode ? 'bg-white/[0.08] text-white/40' : 'bg-black/[0.06] text-black/40'} transition-colors`}
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5">
-                                        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/>
-                                    </svg>
-                                </button>
                             </div>
 
-                            <div className="flex-1 overflow-hidden px-4">
+                            <div className="flex-1 overflow-y-auto">
                                 <AnimatePresence mode="wait">
-                                    {/* — MENU VIEW — */}
+                                    {/* MENU */}
                                     {view === 'menu' && (
                                         <motion.div
                                             key="menu"
-                                            initial={{ opacity: 0, x: 20 }}
+                                            initial={{ opacity: 0, x: 24 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-2"
+                                            exit={{ opacity: 0, x: -24 }}
+                                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                            className="space-y-4"
                                         >
                                             {user ? (
-                                                <>
-                                                    {/* User card */}
-                                                    <div className={`flex items-center gap-3 p-4 rounded-2xl mb-4 ${darkMode ? 'bg-white/[0.06]' : 'bg-black/[0.04]'}`}>
-                                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[12px] font-semibold flex-shrink-0">
-                                                            {user.email?.[0]?.toUpperCase()}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className={`text-[10px] font-medium uppercase tracking-wide mb-0.5 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>{activeT.loggedInAs}</p>
-                                                            <p className={`text-[13px] font-medium truncate ${darkMode ? 'text-white/80' : 'text-[#1d1d1f]/80'}`}>{user.email}</p>
-                                                        </div>
+                                                <div className="space-y-3 mb-6">
+                                                    <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-white/5 border-white/5' : 'bg-black/5 border-black/5'}`}>
+                                                        <p className="text-[8px] font-black uppercase opacity-40 mb-1 tracking-widest">{activeT.loggedInAs}</p>
+                                                        <p className="text-[11px] font-bold truncate tracking-tight">{user.email}</p>
                                                     </div>
                                                     {isAdmin && (
-                                                        <SidebarButton
+                                                        <button
                                                             onClick={() => setView('inbox')}
-                                                            darkMode={darkMode}
-                                                            badge={tickets.length}
-                                                            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><path d="m22 6-10 7L2 6" strokeLinecap="round"/></svg>}
+                                                            className="w-full py-4 rounded-2xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all"
                                                         >
-                                                            Inbox
-                                                        </SidebarButton>
+                                                            📥 Inbox ({tickets.length})
+                                                        </button>
                                                     )}
-                                                    <SidebarButton onClick={() => setView('settings')} darkMode={darkMode}
-                                                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" strokeLinecap="round"/></svg>}
-                                                    >
-                                                        {activeT.settings}
-                                                    </SidebarButton>
-                                                    <SidebarButton onClick={() => setView('support')} darkMode={darkMode}
-                                                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" strokeLinecap="round"/></svg>}
-                                                    >
-                                                        {activeT.support}
-                                                    </SidebarButton>
-                                                    <SidebarButton onClick={handleLogout} darkMode={darkMode} danger
-                                                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round"/></svg>}
+                                                    <button
+                                                        onClick={handleLogout}
+                                                        className="w-full py-4 rounded-2xl bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
                                                     >
                                                         {activeT.logout}
-                                                    </SidebarButton>
-                                                </>
+                                                    </button>
+                                                </div>
                                             ) : (
-                                                <>
+                                                <div className="grid grid-cols-2 gap-3 mb-6">
                                                     <button
                                                         onClick={() => { setIsLoginOpen(true); setIsOpen(false); }}
-                                                        className="w-full py-3.5 rounded-2xl bg-[#0A84FF] text-white text-[13px] font-medium transition-all hover:bg-[#0071E3] active:scale-[0.98] mb-2"
+                                                        className="py-4 rounded-2xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all"
                                                     >
                                                         {activeT.login}
                                                     </button>
                                                     <button
                                                         onClick={() => { setIsLoginOpen(true); setIsOpen(false); }}
-                                                        className={`w-full py-3.5 rounded-2xl text-[13px] font-medium border transition-all active:scale-[0.98] ${darkMode ? 'border-white/15 text-white/70 hover:bg-white/[0.06]' : 'border-black/12 text-black/60 hover:bg-black/[0.04]'}`}
+                                                        className={`py-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all ${darkMode ? 'border-white/15 text-white/60 hover:border-white/30' : 'border-black/12 text-black/50 hover:border-black/25'}`}
                                                     >
                                                         {activeT.register}
                                                     </button>
-                                                    <div className={`h-[0.5px] my-3 ${darkMode ? 'bg-white/[0.08]' : 'bg-black/[0.06]'}`} />
-                                                    <SidebarButton onClick={() => setView('settings')} darkMode={darkMode}
-                                                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" strokeLinecap="round"/></svg>}
-                                                    >
-                                                        {activeT.settings}
-                                                    </SidebarButton>
-                                                    <SidebarButton onClick={() => setView('support')} darkMode={darkMode}
-                                                        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" strokeLinecap="round"/></svg>}
-                                                    >
-                                                        {activeT.support}
-                                                    </SidebarButton>
-                                                </>
+                                                </div>
                                             )}
+
+                                            {[
+                                                { key: 'settings', label: activeT.settings },
+                                                { key: 'support', label: activeT.support },
+                                            ].map(item => (
+                                                <button
+                                                    key={item.key}
+                                                    onClick={() => setView(item.key)}
+                                                    className={`w-full p-5 rounded-2xl flex items-center justify-between transition-all group hover:bg-blue-600 hover:text-white ${darkMode ? 'bg-white/5' : 'bg-black/5'}`}
+                                                >
+                                                    <span className="text-[11px] font-black uppercase tracking-widest">{item.label}</span>
+                                                    <motion.span
+                                                        animate={{ x: 0 }}
+                                                        whileHover={{ x: 4 }}
+                                                        className="transition-transform"
+                                                    >→</motion.span>
+                                                </button>
+                                            ))}
                                         </motion.div>
                                     )}
 
-                                    {/* — SETTINGS VIEW — */}
+                                    {/* SETTINGS */}
                                     {view === 'settings' && (
-                                        <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-                                            <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] mb-4 px-1 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>{activeT.language}</p>
-                                            <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-200px)] pr-1">
-                                                {languages.map((l) => (
+                                        <motion.div
+                                            key="settings"
+                                            initial={{ opacity: 0, x: 24 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -24 }}
+                                            transition={{ duration: 0.22 }}
+                                            className="space-y-4"
+                                        >
+                                            <p className="text-[10px] opacity-40 font-black uppercase tracking-widest mb-4">{activeT.language}</p>
+                                            <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-[55vh] pr-1">
+                                                {languages.map(l => (
                                                     <button
                                                         key={l.code}
                                                         onClick={() => setLang(l.code)}
-                                                        className={`w-full px-4 py-3 rounded-xl text-left text-[14px] font-medium transition-all flex items-center gap-3 ${
+                                                        className={`p-4 rounded-xl text-left text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between ${
                                                             lang === l.code
-                                                                ? 'bg-[#0A84FF] text-white'
-                                                                : darkMode ? 'text-white/60 hover:bg-white/[0.07]' : 'text-black/60 hover:bg-black/[0.04]'
+                                                                ? 'bg-blue-600 text-white'
+                                                                : darkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'
                                                         }`}
                                                     >
-                                                        <span>{l.flag}</span>
                                                         {l.name}
-                                                        {lang === l.code && (
-                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5 ml-auto">
-                                                                <path d="M5 13l4 4L19 7" strokeLinecap="round"/>
-                                                            </svg>
-                                                        )}
+                                                        {lang === l.code && <span className="opacity-80">✓</span>}
                                                     </button>
                                                 ))}
                                             </div>
                                         </motion.div>
                                     )}
 
-                                    {/* — SUPPORT VIEW — */}
+                                    {/* SUPPORT */}
                                     {view === 'support' && (
-                                        <motion.div key="support" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-4">
-                                            <p className={`text-[14px] font-medium mb-4 ${darkMode ? 'text-white/50' : 'text-black/50'}`}>{activeT.supportMsg}</p>
+                                        <motion.div
+                                            key="support"
+                                            initial={{ opacity: 0, x: 24 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -24 }}
+                                            transition={{ duration: 0.22 }}
+                                            className="space-y-4"
+                                        >
+                                            <p className={`text-sm font-bold opacity-60 mb-2`}>{activeT.supportMsg}</p>
                                             <textarea
                                                 value={supportMsg}
-                                                onChange={(e) => setSupportMsg(e.target.value)}
+                                                onChange={e => setSupportMsg(e.target.value)}
                                                 rows={5}
-                                                className={`w-full rounded-2xl p-4 text-[14px] resize-none outline-none border transition-all ${darkMode ? 'bg-white/[0.06] border-white/[0.08] text-white placeholder:text-white/25 focus:border-[#0A84FF]/50' : 'bg-black/[0.04] border-black/[0.08] text-[#1d1d1f] placeholder:text-black/25 focus:border-[#0A84FF]/50'}`}
+                                                className={`w-full rounded-2xl p-4 text-xs resize-none outline-none border transition-all ${
+                                                    darkMode ? 'bg-white/5 border-white/10 focus:border-blue-500 text-white placeholder:text-white/30' : 'bg-black/5 border-black/10 focus:border-blue-500 text-black'
+                                                }`}
                                                 placeholder="..."
                                             />
                                             {supportStatus === 'success' ? (
-                                                <div className="py-3.5 rounded-2xl bg-[#32D74B]/15 text-[#32D74B] text-[13px] font-medium text-center border border-[#32D74B]/20">
+                                                <div className="py-4 rounded-2xl bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest text-center border border-green-500/20">
                                                     {activeT.sent} ✓
                                                 </div>
                                             ) : (
                                                 <button
                                                     onClick={sendSupportTicket}
                                                     disabled={supportStatus === 'sending' || !supportMsg.trim()}
-                                                    className="w-full py-3.5 rounded-2xl bg-[#0A84FF] text-white text-[14px] font-medium transition-all hover:bg-[#0071E3] disabled:opacity-40 active:scale-[0.98]"
+                                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest disabled:opacity-40 hover:bg-blue-500 transition-all"
                                                 >
-                                                    {supportStatus === 'sending' ? '…' : activeT.sendTicket}
+                                                    {supportStatus === 'sending' ? '...' : activeT.sendTicket}
                                                 </button>
                                             )}
                                         </motion.div>
                                     )}
 
-                                    {/* — INBOX VIEW (Admin) — */}
+                                    {/* INBOX (Admin) */}
                                     {view === 'inbox' && (
-                                        <motion.div key="inbox" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-2 overflow-y-auto max-h-[calc(100vh-180px)]">
+                                        <motion.div
+                                            key="inbox"
+                                            initial={{ opacity: 0, x: 24 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -24 }}
+                                            transition={{ duration: 0.22 }}
+                                            className="space-y-3"
+                                        >
                                             {tickets.length === 0 ? (
-                                                <p className={`text-[13px] py-8 text-center ${darkMode ? 'text-white/25' : 'text-black/25'}`}>Keine Tickets</p>
+                                                <p className={`text-center py-10 text-xs font-black uppercase opacity-30`}>Keine Tickets</p>
                                             ) : tickets.map(ticket => (
-                                                <div key={ticket.id} className={`p-4 rounded-2xl border flex gap-3 items-start ${darkMode ? 'bg-white/[0.04] border-white/[0.07]' : 'bg-black/[0.03] border-black/[0.06]'}`}>
+                                                <div key={ticket.id} className={`p-4 rounded-2xl border flex gap-3 ${darkMode ? 'bg-white/5 border-white/5' : 'bg-black/5 border-black/5'}`}>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-[11px] font-semibold text-[#0A84FF] mb-1 truncate">{ticket.user_email}</p>
-                                                        <p className={`text-[13px] leading-relaxed ${darkMode ? 'text-white/70' : 'text-black/70'}`}>{ticket.message}</p>
+                                                        <p className="text-[9px] font-black uppercase text-blue-500 mb-1 truncate">{ticket.user_email}</p>
+                                                        <p className="text-xs font-medium leading-relaxed opacity-70 break-words">{ticket.message}</p>
                                                     </div>
-                                                    <button onClick={() => deleteTicket(ticket.id)} className="text-red-400/50 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                                                            <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/>
-                                                        </svg>
-                                                    </button>
+                                                    <button onClick={() => deleteTicket(ticket.id)} className="text-red-500/40 hover:text-red-500 transition-colors flex-shrink-0 text-lg leading-none">×</button>
                                                 </div>
                                             ))}
                                         </motion.div>
@@ -435,93 +436,67 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                                 </AnimatePresence>
                             </div>
 
-                            <div className="px-6 pb-6 pt-4">
-                                <p className={`text-[11px] text-center font-medium ${darkMode ? 'text-white/15' : 'text-black/15'}`}>RS Pflege v1.2</p>
+                            <div className="mt-auto pt-4">
+                                <p className="text-[8px] text-center opacity-20 font-black uppercase tracking-[0.4em]">RS Pflege v1.2</p>
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
 
-            {/* — Floating Dock — */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100]">
-                {/* Prices submenu */}
+            {/* Bottom Floating Dock */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[95%] sm:w-auto">
+                {/* Prices dropdown — spring animation, centered above dock */}
                 <AnimatePresence>
                     {showPriceMenu && (
                         <motion.div
-                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                            initial={{ opacity: 0, y: 12, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                            transition={{ duration: 0.18 }}
-                            className={`absolute bottom-full left-0 mb-3 w-[200px] rounded-2xl border overflow-hidden ${darkMode ? 'bg-black/80 border-white/[0.10]' : 'bg-white/90 border-black/[0.08] shadow-lg'}`}
-                            style={{ backdropFilter: 'blur(30px) saturate(200%)' }}
+                            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                            className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-[220px] apple-glass border rounded-[2rem] p-2 flex flex-col gap-1 backdrop-blur-3xl shadow-2xl ${glassBase}`}
                         >
                             <Link
                                 to="/preise"
                                 onClick={() => setShowPriceMenu(false)}
-                                className={`flex items-center justify-between px-5 py-3.5 text-[13px] font-medium transition-colors ${darkMode ? 'text-white/80 hover:bg-white/[0.07]' : 'text-[#1d1d1f]/80 hover:bg-black/[0.04]'}`}
+                                className="flex items-center justify-between px-6 py-4 hover:bg-blue-600 hover:text-white rounded-[1.5rem] transition-all group"
                             >
-                                {activeT.prices}
-                                <span className="text-[#0A84FF]">→</span>
+                                <span className="text-[10px] font-black uppercase italic tracking-widest">{activeT.prices}</span>
+                                <motion.span
+                                    initial={{ x: 0 }}
+                                    whileHover={{ x: 3 }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                >✨</motion.span>
                             </Link>
-                            <div className={`h-[0.5px] ${darkMode ? 'bg-white/[0.07]' : 'bg-black/[0.06]'}`} />
-                            <div className={`flex items-center justify-between px-5 py-3.5 text-[13px] font-medium opacity-40 cursor-not-allowed`}>
-                                Shop
-                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${darkMode ? 'bg-[#0A84FF]/15 text-[#0A84FF]' : 'bg-[#0071E3]/10 text-[#0071E3]'}`}>
-                                    {activeT.comingSoon}
-                                </span>
+                            <div className="h-[1px] w-full bg-current opacity-5 mx-3" style={{ width: 'calc(100% - 24px)' }} />
+                            <div className="flex items-center justify-between px-6 py-4 opacity-40 cursor-not-allowed">
+                                <span className="text-[10px] font-black uppercase italic tracking-widest">Shop</span>
+                                <span className="text-[8px] bg-blue-500/20 text-blue-500 px-2 py-1 rounded-full uppercase">{activeT.comingSoon}</span>
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                <nav
-                    className={`flex items-center gap-1 px-2 py-2 rounded-full border transition-all duration-500 ${glass}`}
-                    style={{ backdropFilter: 'blur(30px) saturate(200%)' }}
-                >
-                    <NavItem id="home" label={activeT.home} />
-                    <NavItem id="about" label={activeT.about} />
-                    <NavItem id="gallery" label={activeT.gallery} />
-                    <NavItem id="prices" label={activeT.prices} />
+                {/* Dock */}
+                <nav className={`apple-glass rounded-full px-2 sm:px-6 py-2 flex items-center justify-between sm:justify-center gap-1 sm:gap-2 backdrop-blur-3xl border transition-all duration-500 ${glassBase}`}>
+                    <div className="flex gap-0.5 sm:gap-1 items-center">
+                        {navItem('home', activeT.home)}
+                        {navItem('about', activeT.about)}
+                        {navItem('gallery', activeT.gallery)}
+                        {navItem('prices', activeT.prices)}
+                    </div>
 
-                    <div className={`w-[0.5px] h-5 mx-1 ${darkMode ? 'bg-white/[0.12]' : 'bg-black/[0.10]'}`} />
+                    <div className="h-6 w-[1px] bg-current opacity-10 mx-1 sm:mx-2 flex-shrink-0" />
 
                     <Link
                         to="/#kontakt"
-                        onClick={(e) => handleNavClick(e, 'contact')}
-                        className="px-5 py-2 rounded-full bg-[#0A84FF] text-white text-[13px] font-medium transition-all hover:bg-[#0071E3] active:scale-[0.95] whitespace-nowrap"
+                        onClick={(e) => handleNavClick(e, 'kontakt')}
+                        className="flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-7 py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] shadow-lg active:scale-95 transition-all whitespace-nowrap"
                     >
                         {activeT.contact}
                     </Link>
                 </nav>
             </div>
-        </div>
-    );
-}
-
-// Sidebar button helper
-function SidebarButton({ children, onClick, darkMode, danger, badge, icon }) {
-    return (
-        <button
-            onClick={onClick}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-medium transition-all active:scale-[0.98] ${
-                danger
-                    ? 'text-[#FF3B30] hover:bg-[#FF3B30]/[0.08]'
-                    : darkMode ? 'text-white/60 hover:bg-white/[0.07] hover:text-white/90' : 'text-black/55 hover:bg-black/[0.04] hover:text-black/80'
-            }`}
-        >
-            <span className="flex-shrink-0">{icon}</span>
-            <span>{children}</span>
-            {badge > 0 && (
-                <span className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[#FF3B30] text-white text-[10px] font-semibold">
-                    {badge}
-                </span>
-            )}
-            {!badge && !danger && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 ml-auto opacity-30">
-                    <path d="M9 18l6-6-6-6" strokeLinecap="round"/>
-                </svg>
-            )}
-        </button>
+        </>
     );
 }
