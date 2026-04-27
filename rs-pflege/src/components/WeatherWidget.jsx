@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLocation } from './useLocation';
 
 const sf = { fontFamily: '-apple-system, "SF Pro Text", "Helvetica Neue", sans-serif' };
 
 export default function WeatherWidget({ darkMode, lang = 'de' }) {
     const [weather, setWeather] = useState(null);
-    const [city, setCity] = useState('Vöcklabruck');
+    const { coords, city, loading } = useLocation();
 
     const localT = {
         de: { wash: 'Waschtag', interior: 'Innenreinigung', loc: 'Standort' },
@@ -15,38 +16,23 @@ export default function WeatherWidget({ darkMode, lang = 'de' }) {
     const t = localT[lang] || localT.de;
 
     useEffect(() => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => await fetchWeatherData(pos.coords.latitude, pos.coords.longitude, true),
-                async () => await fetchWeatherData(48.00, 13.65, false)
-            );
-        } else {
-            fetchWeatherData(48.00, 13.65, false);
-        }
-    }, [lang]);
+        if (!coords) return;
+        const { lat, lon } = coords;
+        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+            .then(r => r.json())
+            .then(d => setWeather(d.current_weather))
+            .catch(() => {});
+    }, [coords?.lat, coords?.lon]);
 
-    async function fetchWeatherData(lat, lon, isAuto) {
-        try {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-            const data = await res.json();
-            setWeather(data.current_weather);
-            if (isAuto) {
-                const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                const geoData = await geo.json();
-                setCity(geoData.address.city || geoData.address.town || geoData.address.village || t.loc);
-            }
-        } catch (err) { /* silent fail */ }
-    }
-
-    if (!weather) return null;
+    if (loading || !weather) return null;
 
     const getWeatherInfo = (code) => {
-        if (code === 0) return { emoji: '☀️', label: t.wash, good: true };
-        if (code <= 3) return { emoji: '⛅', label: t.wash, good: true };
-        if (code <= 48) return { emoji: '🌫️', label: t.interior, good: false };
-        if (code <= 67) return { emoji: '🌧️', label: t.interior, good: false };
-        if (code <= 77) return { emoji: '❄️', label: t.interior, good: false };
-        return { emoji: '⛈️', label: t.interior, good: false };
+        if (code === 0)  return { emoji: '☀️', label: t.wash,     good: true  };
+        if (code <= 3)   return { emoji: '⛅',  label: t.wash,     good: true  };
+        if (code <= 48)  return { emoji: '🌫️', label: t.interior, good: false };
+        if (code <= 67)  return { emoji: '🌧️', label: t.interior, good: false };
+        if (code <= 77)  return { emoji: '❄️',  label: t.interior, good: false };
+        return               { emoji: '⛈️',  label: t.interior, good: false };
     };
 
     const { emoji, label, good } = getWeatherInfo(weather.weathercode);

@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from './useLocation';
 
 // ── Standorte ─────────────────────────────────────────────────────────────────
 const LOCATIONS = [
@@ -8,14 +9,19 @@ const LOCATIONS = [
     { id: 'sandh',          label: 'Sandhäuslbergstraße 5', city: 'Vöcklabruck' },
 ];
 
-// Fahrtkosten: pauschale €/km — in der Praxis per Google Maps API ersetzen
+// ── Fahrtkosten-Kalkulation ──────────────────────────────────────────────────
+// Basis: 10L/100km · aktueller AT-Spritpreis · Hin+Rück · +30% Aufschlag
+const FUEL_L_PER_100KM = 10;
+const FUEL_PRICE_EUR   = 1.55;   // €/L — Super E10 Österreich
+const OVERHEAD_FACTOR  = 1.30;   // +30% für Zeit, Abnutzung, Aufwand
+const FREE_KM          = 3;      // bis 3 km Luftlinie kostenlos
+
 function estimateTravelFee(km) {
-    if (km <= 0)  return 0;
-    if (km <= 5)  return 0;    // kostenlos innerhalb 5 km
-    if (km <= 10) return 5;
-    if (km <= 20) return 10;
-    if (km <= 35) return 15;
-    return 20; // ab 35 km Pauschalgebühr
+    if (km <= FREE_KM) return 0;
+    const roundTrip = km * 2;
+    const fuelCost  = roundTrip * (FUEL_L_PER_100KM / 100) * FUEL_PRICE_EUR;
+    const totalRaw  = fuelCost * OVERHEAD_FACTOR;
+    return Math.round(totalRaw * 2) / 2; // auf 0.50€ runden
 }
 
 // Einfache Haversine-Distanz-Schätzung (Luftlinie × 1.3 = Straße)
@@ -55,6 +61,7 @@ function getFirstDayOfMonth(year, month) {
 export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const t = translations[lang] || translations.de;
     const form = useRef();
+    const { coords: userCoords, city: userCity } = useLocation();
 
     // Form state
     const [status, setStatus]               = useState('idle');
@@ -64,10 +71,27 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const [serviceMode, setServiceMode]     = useState(null);         // 'home' | 'here'
     const [selectedBase, setSelectedBase]   = useState('voelkssiedlung'); // Standort
     const [customerAddr, setCustomerAddr]   = useState('');
+    const [addrPrefilled, setAddrPrefilled] = useState(false);
     const [addrGeo, setAddrGeo]             = useState(null);          // { lat, lon, display }
     const [addrLoading, setAddrLoading]     = useState(false);
     const [travelFee, setTravelFee]         = useState(0);
     const [travelKm, setTravelKm]           = useState(null);
+
+    // Wenn Nutzer "Ihr kommt zu mir" wählt und wir seinen Standort kennen →
+    // Adresse vorausfüllen + Fahrtkosten sofort berechnen
+    useEffect(() => {
+        if (serviceMode !== 'home' || addrPrefilled) return;
+        if (!userCoords) return;
+        const { lat, lon } = userCoords;
+        const base = LOCATION_COORDS[selectedBase];
+        const km   = haversineKm(base.lat, base.lon, lat, lon);
+        setTravelKm(Math.round(km));
+        setTravelFee(estimateTravelFee(km));
+        setAddrGeo({ lat, lon, display: userCity });
+        // Adressfeld mit Stadt vorausfüllen (der User kann es noch ändern)
+        if (!customerAddr) setCustomerAddr(userCity);
+        setAddrPrefilled(true);
+    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity]);
 
     // Calendar state
     const today = new Date();
@@ -259,8 +283,13 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                             {/* Travel fee line */}
                             {travelFee > 0 && (
                                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                                    className={`mt-4 flex justify-between items-center text-[10px] font-black uppercase ${darkMode ? 'text-white/50' : 'text-black/50'}`}>
-                                    <span>🚗 {lang === 'de' ? `Fahrtkosten (~${travelKm} km)` : `Travel (~${travelKm} km)`}</span>
+                                    className={`mt-4 p-3 rounded-2xl flex justify-between items-center text-[10px] font-black uppercase ${darkMode ? 'bg-white/[0.03] text-white/50' : 'bg-black/[0.03] text-black/50'}`}>
+                                    <div>
+                                        <span>🚗 {lang === 'de' ? 'Fahrtkosten' : 'Travel fee'}</span>
+                                        <span className={`ml-2 text-[8px] font-bold normal-case ${darkMode ? 'text-white/25' : 'text-black/30'}`}>
+                                            ~{travelKm} km · Hin+Rück
+                                        </span>
+                                    </div>
                                     <span className="text-blue-500">+{travelFee}€</span>
                                 </motion.div>
                             )}
@@ -322,7 +351,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                                 type="button"
                                                 whileHover={{ scale: 1.02 }}
                                                 whileTap={{ scale: 0.97 }}
-                                                onClick={() => { setServiceMode(opt.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); }}
+                                                onClick={() => { setServiceMode(opt.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); setAddrPrefilled(false); setCustomerAddr(''); }}
                                                 className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
                                                     serviceMode === opt.id
                                                         ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_20px_rgba(37,99,235,0.15)]'
@@ -348,7 +377,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                             <div className="grid grid-cols-1 gap-2">
                                                 {LOCATIONS.map(loc => (
                                                     <button key={loc.id} type="button"
-                                                        onClick={() => { setSelectedBase(loc.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); }}
+                                                        onClick={() => { setSelectedBase(loc.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); setAddrPrefilled(false); setCustomerAddr(''); }}
                                                         className={`px-5 py-3.5 rounded-2xl border-2 text-left transition-all duration-200 ${
                                                             selectedBase === loc.id
                                                                 ? 'border-blue-500 bg-blue-500/10'
@@ -369,6 +398,21 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                     {serviceMode === 'home' && (
                                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
                                             <label className={labelStyle}>{lang === 'de' ? 'Ihre Adresse' : 'Your address'}</label>
+                                            {addrPrefilled && addrGeo && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -4 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest w-fit ${
+                                                        darkMode ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-blue-50 border border-blue-200 text-blue-600'
+                                                    }`}
+                                                >
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                                    {lang === 'de' ? `Standort erkannt · ${userCity}` : `Location detected · ${userCity}`}
+                                                    <span className={`opacity-50 ${darkMode ? 'text-white/40' : 'text-black/40'}`}>
+                                                        · {lang === 'de' ? 'Adresse änderbar' : 'editable'}
+                                                    </span>
+                                                </motion.div>
+                                            )}
                                             <div className="flex gap-2">
                                                 <input
                                                     name="kunden_adresse"
@@ -419,7 +463,10 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
 
                                             {/* Fee info */}
                                             <p className={`text-[8px] font-bold uppercase tracking-widest ml-2 ${darkMode ? 'text-white/20' : 'text-black/25'}`}>
-                                                {lang === 'de' ? 'Bis 5 km kostenlos · 5–10 km +5€ · 10–20 km +10€ · 20–35 km +15€ · ab 35 km +20€' : 'Up to 5 km free · 5–10 km +€5 · 10–20 km +€10 · 20–35 km +€15 · 35+ km +€20'}
+                                                {lang === 'de'
+                                                    ? `Bis ${FREE_KM} km kostenlos · danach ${(FUEL_L_PER_100KM/100 * FUEL_PRICE_EUR * 2 * OVERHEAD_FACTOR).toFixed(2).replace('.',',')}€/km (Hin+Rück · 10L/100km · ${FUEL_PRICE_EUR.toFixed(2).replace('.',',')}€/L)`
+                                                    : `Up to ${FREE_KM} km free · then ${(FUEL_L_PER_100KM/100 * FUEL_PRICE_EUR * 2 * OVERHEAD_FACTOR).toFixed(2)}€/km (round trip · 10L/100km · €${FUEL_PRICE_EUR.toFixed(2)})`
+                                                }
                                             </p>
                                         </motion.div>
                                     )}
