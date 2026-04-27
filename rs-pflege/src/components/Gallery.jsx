@@ -12,8 +12,6 @@ export default function Gallery({ darkMode, lang }) {
 
     const [activeTab, setActiveTab] = useState('all');
     const [currentIndex, setCurrentIndex] = useState(null);
-    const [sliderPos, setSliderPos] = useState(50);
-    const [isDraggingSlider, setIsDraggingSlider] = useState(false);
     const [direction, setDirection] = useState(0);
 
     const categories = [
@@ -24,23 +22,22 @@ export default function Gallery({ darkMode, lang }) {
     ];
 
     const allImages = [
-        { src: imgSuv,         before: imgSedan,       alt: 'SUV Premium',   cat: 'exterior', isComparison: true,  size: 'md:col-span-2 md:row-span-2' },
-        { src: imgSedan,                               alt: 'Heck-Politur',  cat: 'exterior',                      size: 'md:col-span-1 md:row-span-1' },
-        { src: imgDash,        before: imgConvertible, alt: 'Leder Refresh', cat: 'interior', isComparison: true,  size: 'md:col-span-1 md:row-span-2' },
-        { src: imgConvertible,                         alt: 'Cabrio Finish', cat: 'exterior',                      size: 'md:col-span-2 md:row-span-1' },
-        { src: imgDash,                                alt: 'Cockpit',       cat: 'interior',                      size: 'md:col-span-1 md:row-span-1' },
+        { src: imgSuv,         alt: 'SUV Premium',   cat: 'exterior', size: 'md:col-span-2 md:row-span-2' },
+        { src: imgSedan,       alt: 'Heck-Politur',  cat: 'exterior', size: 'md:col-span-1 md:row-span-1' },
+        { src: imgDash,        alt: 'Leder Refresh', cat: 'interior', size: 'md:col-span-1 md:row-span-2' },
+        { src: imgConvertible, alt: 'Cabrio Finish',  cat: 'exterior', size: 'md:col-span-2 md:row-span-1' },
+        { src: imgDash,        alt: 'Cockpit',       cat: 'interior', size: 'md:col-span-1 md:row-span-1' },
     ];
 
     const filteredImages = activeTab === 'all'
         ? allImages
         : allImages.filter(img => img.cat === activeTab);
 
-    const openLightbox  = (index) => { setDirection(0); setSliderPos(50); setCurrentIndex(index); };
+    const openLightbox  = (index) => { setDirection(0); setCurrentIndex(index); };
     const closeLightbox = useCallback(() => setCurrentIndex(null), []);
 
     const paginate = useCallback((newDirection) => {
         setDirection(newDirection);
-        setSliderPos(50);
         setCurrentIndex(prev => (prev + newDirection + filteredImages.length) % filteredImages.length);
     }, [filteredImages.length]);
 
@@ -51,22 +48,14 @@ export default function Gallery({ darkMode, lang }) {
     }, [currentIndex, closeLightbox]);
 
     useEffect(() => {
-        if (currentIndex !== null && !isDraggingSlider) {
+        if (currentIndex !== null) {
             const timer = setTimeout(() => paginate(1), 8000);
             return () => clearTimeout(timer);
         }
-    }, [currentIndex, isDraggingSlider, paginate]);
+    }, [currentIndex, paginate]);
 
     const handleDragEnd = (e, { offset, velocity }) => {
-        if (isDraggingSlider) return;
         if (Math.abs(offset.x) > 50 && Math.abs(velocity.x) > 300) paginate(offset.x > 0 ? -1 : 1);
-    };
-
-    const handleSliderMove = (e) => {
-        if (!isDraggingSlider) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        setSliderPos(Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100)));
     };
 
     const slideVariants = {
@@ -195,13 +184,14 @@ export default function Gallery({ darkMode, lang }) {
                         className="fixed inset-0 z-[2100] bg-black/96 backdrop-blur-3xl flex items-center justify-center"
                         onClick={closeLightbox}
                     >
+                        {/* ── Schließen-Button oben rechts ── */}
                         <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
+                            initial={{ opacity: 0, scale: 0.7 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 22 }}
+                            exit={{ opacity: 0, scale: 0.7 }}
+                            transition={{ delay: 0.1, type: 'spring', stiffness: 320, damping: 22 }}
                             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-                            className="absolute top-6 left-6 z-[2110] w-12 h-12 flex items-center justify-center rounded-full border bg-white/[0.08] hover:bg-white/[0.18] border-white/15 text-white transition-all duration-200 active:scale-90"
+                            className="absolute top-4 right-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/20 text-white transition-all duration-200 active:scale-90"
                             aria-label="Schließen"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
@@ -209,7 +199,8 @@ export default function Gallery({ darkMode, lang }) {
                             </svg>
                         </motion.button>
 
-                        <div className="absolute top-7 left-1/2 -translate-x-1/2 z-[2110] flex gap-2">
+                        {/* ── Dots Navigation ── */}
+                        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[2110] flex gap-2">
                             {filteredImages.map((_, i) => (
                                 <button key={i} onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
                                     className={`h-1.5 rounded-full transition-all duration-300 ${i === currentIndex ? 'w-7 bg-blue-500' : 'w-2 bg-white/25 hover:bg-white/50'}`}
@@ -217,90 +208,64 @@ export default function Gallery({ darkMode, lang }) {
                             ))}
                         </div>
 
+                        {/* ── Bildtitel unten ── */}
                         <motion.div
                             key={currentIndex + '-title'}
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.15 }}
-                            className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[2110] text-center pointer-events-none"
+                            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[2110] text-center pointer-events-none"
                         >
-                            <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em]">{filteredImages[currentIndex]?.alt}</p>
-                            {filteredImages[currentIndex]?.isComparison && (
-                                <p className="text-blue-400/70 text-[9px] font-bold uppercase tracking-widest mt-1">
-                                    {lang === 'de' ? '← Ziehen für Vorher/Nachher' : '← Drag for Before/After'}
-                                </p>
-                            )}
+                            <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em]">
+                                {filteredImages[currentIndex]?.alt}
+                            </p>
                         </motion.div>
 
-                        <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:flex justify-between z-[2110] pointer-events-none">
+                        {/* ── Desktop Pfeile links/rechts ── */}
+                        <div className="absolute inset-x-4 md:inset-x-6 top-1/2 -translate-y-1/2 hidden md:flex justify-between z-[2110] pointer-events-none">
                             {[{ dir: -1, icon: 'M15 19l-7-7 7-7' }, { dir: 1, icon: 'M9 5l7 7-7 7' }].map(({ dir, icon }) => (
                                 <motion.button key={dir} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
                                     onClick={(e) => { e.stopPropagation(); paginate(dir); }}
-                                    className="p-5 text-white bg-white/[0.06] hover:bg-blue-600 rounded-2xl border border-white/10 pointer-events-auto transition-all duration-250 backdrop-blur-xl"
+                                    className="p-4 text-white bg-white/[0.06] hover:bg-blue-600 rounded-2xl border border-white/10 pointer-events-auto transition-all duration-200 backdrop-blur-xl"
                                 >
-                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={icon} />
                                     </svg>
                                 </motion.button>
                             ))}
                         </div>
 
-                        <div className="relative w-full h-[82vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        {/* ── Bild ── */}
+                        <div className="relative w-full h-[80vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                             <AnimatePresence initial={false} custom={direction}>
                                 <motion.div
                                     key={currentIndex}
                                     custom={direction}
                                     variants={slideVariants}
                                     initial="enter" animate="center" exit="exit"
-                                    drag={!isDraggingSlider ? 'x' : false}
+                                    drag="x"
                                     dragConstraints={{ left: 0, right: 0 }}
                                     dragElastic={0.12}
                                     onDragEnd={handleDragEnd}
                                     transition={{ x: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
                                     className="absolute inset-0 flex items-center justify-center px-4 md:px-24"
                                 >
-                                    {filteredImages[currentIndex]?.isComparison ? (
-                                        <div
-                                            className="relative w-full max-w-5xl aspect-[4/3] md:aspect-video rounded-[2rem] md:rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl touch-none select-none"
-                                            onMouseMove={handleSliderMove} onTouchMove={handleSliderMove}
-                                            onMouseDown={() => setIsDraggingSlider(true)} onMouseUp={() => setIsDraggingSlider(false)}
-                                            onTouchStart={() => setIsDraggingSlider(true)} onTouchEnd={() => setIsDraggingSlider(false)}
-                                        >
-                                            <img src={filteredImages[currentIndex].src} className="absolute inset-0 w-full h-full object-cover" alt="After" draggable="false" />
-                                            <div className="absolute bottom-5 right-5 bg-black/50 backdrop-blur-md text-white text-[9px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest z-20">
-                                                {t.galleryAfter || 'After'}
-                                            </div>
-                                            <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPos}%`, borderRight: '2px solid rgb(59,130,246)' }}>
-                                                <img src={filteredImages[currentIndex].before} className="absolute inset-0 h-full object-cover"
-                                                    style={{ width: `${100 / (sliderPos / 100)}%`, maxWidth: 'none' }} alt="Before" draggable="false" />
-                                                <div className="absolute bottom-5 left-5 bg-blue-600/90 backdrop-blur-md text-white text-[9px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest z-20">
-                                                    {t.galleryBefore || 'Before'}
-                                                </div>
-                                            </div>
-                                            <div className="absolute top-0 bottom-0 z-50 flex items-center pointer-events-none" style={{ left: `${sliderPos}%` }}>
-                                                <div className="-translate-x-1/2 w-11 h-11 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center shadow-[0_0_24px_rgba(37,99,235,0.6)]">
-                                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" /></svg>
-                                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" /></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <motion.img
-                                            key={currentIndex + '-img'}
-                                            initial={{ opacity: 0, scale: 0.96 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                                            src={filteredImages[currentIndex]?.src}
-                                            className="max-h-full max-w-full object-contain rounded-[2rem] shadow-2xl select-none"
-                                            alt={filteredImages[currentIndex]?.alt}
-                                            draggable="false"
-                                        />
-                                    )}
+                                    <motion.img
+                                        key={currentIndex + '-img'}
+                                        initial={{ opacity: 0, scale: 0.96 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                        src={filteredImages[currentIndex]?.src}
+                                        className="max-h-full max-w-full object-contain rounded-2xl md:rounded-[2rem] shadow-2xl select-none"
+                                        alt={filteredImages[currentIndex]?.alt}
+                                        draggable="false"
+                                    />
                                 </motion.div>
                             </AnimatePresence>
                         </div>
 
-                        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 md:hidden text-white/25 text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
+                        {/* ── Mobile Swipe-Hint ── */}
+                        <p className="absolute bottom-3 left-1/2 -translate-x-1/2 md:hidden text-white/25 text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
                             {t.gallerySwipeTip || 'Swipe to change'}
                         </p>
                     </motion.div>

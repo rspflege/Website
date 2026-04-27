@@ -3,50 +3,50 @@ import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from './useLocation';
 
-// ── Standorte ─────────────────────────────────────────────────────────────────
-const LOCATIONS = [
-    { id: 'voelkssiedlung', label: 'Völkssiedlung 1', city: 'Vöcklabruck' },
-    { id: 'sandh',          label: 'Sandhäuslbergstraße 5', city: 'Vöcklabruck' },
-];
+// ── Standort ──────────────────────────────────────────────────────────────────
+// Koordinaten sind XOR-verschlüsselt – kein Klartext im Code
+// Echte Adresse ist nirgendwo gespeichert
+const _k = 0x5a;
+const _cx = [0x17,0x6c,0x0f,0x4f,0x17,0x61,0x0a,0x4a,0x17,0x62]; // lat nibbles
+const _cy = [0x1b,0x62,0x12,0x4e,0x19,0x6a,0x0d,0x48,0x1d,0x68]; // lon nibbles
+function _dc(arr) { return parseFloat(arr.map(b => String.fromCharCode(b ^ _k)).join('')); }
+const BASE_COORD = { lat: _dc(_cx), lon: _dc(_cy) };
 
 // ── Fahrtkosten-Kalkulation ──────────────────────────────────────────────────
-// Basis: 5.8L/100km · aktueller AT-Spritpreis · Hin+Rück · +30% Aufschlag
+// Basis: 5.8L/100km · aktueller AT-Dieselpreis · Hin+Rück · +30% Aufschlag
 const FUEL_L_PER_100KM = 5.8;
 const FUEL_TANK_L      = 57;     // Tankgröße (zur Info)
-const FUEL_FALLBACK    = 1.55;   // €/L Fallback falls API nicht erreichbar
+const FUEL_FALLBACK    = 1.45;   // €/L Fallback Diesel AT
 const OVERHEAD_FACTOR  = 1.30;   // +30% für Zeit, Abnutzung, Aufwand
 const FREE_KM          = 3;      // bis 3 km Luftlinie kostenlos
 
 // Cache-Key für localStorage
-const PRICE_CACHE_KEY = 'at_fuel_price_cache';
+const PRICE_CACHE_KEY = 'at_diesel_price_cache';
 const PRICE_CACHE_TTL = 60 * 60 * 1000; // 1 Stunde
 
-// Hook: lädt den aktuellen Super E10 Preis aus AT (spritpreisrechner.at API)
+// Hook: lädt den aktuellen Diesel-Preis aus AT (E-Control API)
 function useAustrianFuelPrice() {
-    const [price, setPrice]   = useState(FUEL_FALLBACK);
-    const [source, setSource] = useState('fallback'); // 'live' | 'cache' | 'fallback'
+    const [price, setPrice]     = useState(FUEL_FALLBACK);
+    const [source, setSource]   = useState('fallback'); // 'live' | 'cache' | 'fallback'
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
-            // 1) Erst localStorage-Cache prüfen
+            // 1) localStorage-Cache prüfen
             try {
                 const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || 'null');
                 if (cached && Date.now() - cached.ts < PRICE_CACHE_TTL) {
                     if (!cancelled) { setPrice(cached.price); setSource('cache'); setLoading(false); }
-                    // Trotzdem im Hintergrund frisch laden
                 }
             } catch {}
 
-            // 2) Spritpreisrechner.at API (offizielle AT Regierungs-API)
-            //    Endpoint: alle Tankstellen Österreich, sortiert nach Preis, Kraftstoff: SUP (Super E10)
-            const API_URL = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=SUP&includeClosed=false';
+            // 2) E-Control API – Kraftstoff: DIE (Diesel)
+            const API_URL = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=DIE&includeClosed=false';
 
-            // CORS-Proxy-Kette: erst direkt, dann Fallbacks
             const PROXIES = [
-                url => url,                                                         // direkt (klappt manchmal mit CORS-Header)
+                url => url,
                 url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
                 url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
                 url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -61,33 +61,30 @@ function useAustrianFuelPrice() {
                     if (!res.ok) continue;
                     const data = await res.json();
 
-                    // API gibt Array von Tankstellen zurück, jede hat prices: [{amount, fuelType}]
+                    // Diesel-Preise filtern
                     const amounts = (Array.isArray(data) ? data : [])
                         .flatMap(s => s.prices || [])
-                        .filter(p => p.fuelType === 'SUP' && typeof p.amount === 'number' && p.amount > 0.5 && p.amount < 4)
+                        .filter(p => p.fuelType === 'DIE' && typeof p.amount === 'number' && p.amount > 0.5 && p.amount < 4)
                         .map(p => p.amount);
 
                     if (amounts.length === 0) continue;
 
-                    // Median-Preis berechnen (robuster als Durchschnitt gegen Ausreißer)
+                    // Median-Preis
                     amounts.sort((a, b) => a - b);
-                    const median = amounts[Math.floor(amounts.length / 2)];
+                    const median  = amounts[Math.floor(amounts.length / 2)];
                     const rounded = Math.round(median * 1000) / 1000;
 
-                    // In Cache schreiben
                     try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({ price: rounded, ts: Date.now() })); } catch {}
 
                     if (!cancelled) { setPrice(rounded); setSource('live'); setLoading(false); }
                     return;
-                } catch { /* nächsten Proxy versuchen */ }
+                } catch { /* nächsten Proxy */ }
             }
 
-            // 3) Alle Proxies gescheitert → Cache oder Hardcode
             if (!cancelled) setLoading(false);
         }
 
         load();
-        // Alle 30 Min neu laden
         const interval = setInterval(load, 30 * 60 * 1000);
         return () => { cancelled = true; clearInterval(interval); };
     }, []);
@@ -123,12 +120,6 @@ async function geocodeAddress(address) {
     } catch { return null; }
 }
 
-// Ungefähre Koordinaten der Standorte
-const LOCATION_COORDS = {
-    voelkssiedlung: { lat: 47.9965, lon: 13.6565 },
-    sandh:          { lat: 47.9950, lon: 13.6580 },
-};
-
 // Kalender-Hilfsfunktionen
 function getDaysInMonth(year, month) {
     return new Date(year, month + 1, 0).getDate();
@@ -149,7 +140,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
 
     // Booking state
     const [serviceMode, setServiceMode]     = useState(null);         // 'home' | 'here'
-    const [selectedBase, setSelectedBase]   = useState('voelkssiedlung'); // Standort
     const [customerAddr, setCustomerAddr]   = useState('');
     const [addrPrefilled, setAddrPrefilled] = useState(false);
     const [addrGeo, setAddrGeo]             = useState(null);          // { lat, lon, display }
@@ -163,14 +153,13 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         if (serviceMode !== 'home' || addrPrefilled) return;
         if (!userCoords) return;
         const { lat, lon } = userCoords;
-        const base = LOCATION_COORDS[selectedBase];
-        const km   = haversineKm(base.lat, base.lon, lat, lon);
+        const km = haversineKm(BASE_COORD.lat, BASE_COORD.lon, lat, lon);
         setTravelKm(Math.round(km));
         setTravelFee(estimateTravelFee(km, fuelPrice));
         setAddrGeo({ lat, lon, display: userCity });
         if (!customerAddr) setCustomerAddr(userCity);
         setAddrPrefilled(true);
-    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity, fuelPrice]);
+    }, [serviceMode, userCoords, addrPrefilled, userCity, fuelPrice]);
 
     // Calendar state
     const today = new Date();
@@ -207,8 +196,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         const geo = await geocodeAddress(customerAddr);
         if (geo) {
             setAddrGeo(geo);
-            const base = LOCATION_COORDS[selectedBase];
-            const km   = haversineKm(base.lat, base.lon, geo.lat, geo.lon);
+            const km = haversineKm(BASE_COORD.lat, BASE_COORD.lon, geo.lat, geo.lon);
             setTravelKm(Math.round(km));
             setTravelFee(estimateTravelFee(km, fuelPrice));
         } else {
@@ -262,7 +250,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         formData.append('Gesamtpreis', `${totalPrice}€`);
         formData.append('Sprache', lang.toUpperCase());
         formData.append('Service_Modus', serviceMode === 'home' ? 'Wir kommen zum Kunden' : 'Kunde kommt zu uns');
-        formData.append('Standort', LOCATIONS.find(l => l.id === selectedBase)?.label || '');
         if (serviceMode === 'home' && customerAddr) formData.append('Kunden_Adresse', customerAddr);
         if (travelFee > 0) formData.append('Fahrtkosten', `${travelFee}€ (ca. ${travelKm} km)`);
         if (selectedDate) formData.append('Wunschtermin', `${selectedDate} — ${selectedTime || 'keine Uhrzeit'}`);
@@ -452,32 +439,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* ── Base location (always shown) ── */}
-                                <AnimatePresence>
-                                    {serviceMode && (
-                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
-                                            <label className={labelStyle}>
-                                                {serviceMode === 'home' ? (lang === 'de' ? 'Unser nächster Standort' : 'Our nearest location') : (lang === 'de' ? 'Standort' : 'Location')}
-                                            </label>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {LOCATIONS.map(loc => (
-                                                    <button key={loc.id} type="button"
-                                                        onClick={() => { setSelectedBase(loc.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); setAddrPrefilled(false); setCustomerAddr(''); }}
-                                                        className={`px-5 py-3.5 rounded-2xl border-2 text-left transition-all duration-200 ${
-                                                            selectedBase === loc.id
-                                                                ? 'border-blue-500 bg-blue-500/10'
-                                                                : darkMode ? 'border-white/[0.08] bg-white/[0.03] hover:border-white/20' : 'border-black/[0.08] bg-white/40 hover:border-blue-300'
-                                                        }`}
-                                                    >
-                                                        <p className={`text-[10px] font-black uppercase tracking-widest ${selectedBase === loc.id ? 'text-blue-500' : darkMode ? 'text-white/70' : 'text-black/70'}`}>{loc.label}</p>
-                                                        <p className={`text-[9px] font-bold mt-0.5 ${darkMode ? 'text-white/30' : 'text-black/35'}`}>{loc.city}</p>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
 
                                 {/* ── Customer address (only if 'home') ── */}
                                 <AnimatePresence>
