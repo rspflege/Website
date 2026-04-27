@@ -1,18 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import imgSuv from '../assets/bmw-suv.jpg';
-import imgSedan from '../assets/bmw-heck.jpg';
-import imgDash from '../assets/bmw-innen.jpg';
+import imgSuv         from '../assets/bmw-suv.jpg';
+import imgSedan       from '../assets/bmw-heck.jpg';
+import imgDash        from '../assets/bmw-innen.jpg';
 import imgConvertible from '../assets/bmw-cabrio.jpg';
+
+// ── Admin-Passwort (hier ändern) ─────────────────────────────────────────────
+const ADMIN_HASH = 'rspflege2024';
+const STORAGE_KEY = 'gallery_extra_images';
 
 export default function Gallery({ darkMode, lang }) {
     const t = translations[lang] || translations.de;
+    const fileInputRef = useRef(null);
 
-    const [activeTab, setActiveTab] = useState('all');
-    const [currentIndex, setCurrentIndex] = useState(null);
-    const [direction, setDirection] = useState(0);
+    // ── State ─────────────────────────────────────────────────────────────────
+    const [activeTab,      setActiveTab]      = useState('all');
+    const [currentIndex,   setCurrentIndex]   = useState(null);
+    const [direction,      setDirection]      = useState(0);
+    const [isAdmin,        setIsAdmin]        = useState(false);
+    const [showLogin,      setShowLogin]      = useState(false);
+    const [adminPw,        setAdminPw]        = useState('');
+    const [pwError,        setPwError]        = useState(false);
+    const [uploadToast,    setUploadToast]    = useState('');
+    const [extraImages,    setExtraImages]    = useState(() => {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+        catch { return []; }
+    });
 
     const categories = [
         { id: 'all',      label: t.galleryCatAll || 'Alle' },
@@ -21,7 +36,7 @@ export default function Gallery({ darkMode, lang }) {
         { id: 'details',  label: t.galleryCatDet || 'Details' },
     ];
 
-    const allImages = [
+    const baseImages = [
         { src: imgSuv,         alt: 'SUV Premium',   cat: 'exterior', size: 'md:col-span-2 md:row-span-2' },
         { src: imgSedan,       alt: 'Heck-Politur',  cat: 'exterior', size: 'md:col-span-1 md:row-span-1' },
         { src: imgDash,        alt: 'Leder Refresh', cat: 'interior', size: 'md:col-span-1 md:row-span-2' },
@@ -29,41 +44,89 @@ export default function Gallery({ darkMode, lang }) {
         { src: imgDash,        alt: 'Cockpit',       cat: 'interior', size: 'md:col-span-1 md:row-span-1' },
     ];
 
-    const filteredImages = activeTab === 'all'
-        ? allImages
-        : allImages.filter(img => img.cat === activeTab);
+    const allImages      = [...baseImages, ...extraImages];
+    const filteredImages = activeTab === 'all' ? allImages : allImages.filter(i => i.cat === activeTab);
 
-    const openLightbox  = (index) => { setDirection(0); setCurrentIndex(index); };
+    // ── Lightbox ──────────────────────────────────────────────────────────────
+    const openLightbox  = (i) => { setDirection(0); setCurrentIndex(i); };
     const closeLightbox = useCallback(() => setCurrentIndex(null), []);
 
-    const paginate = useCallback((newDirection) => {
-        setDirection(newDirection);
-        setCurrentIndex(prev => (prev + newDirection + filteredImages.length) % filteredImages.length);
+    const paginate = useCallback((dir) => {
+        setDirection(dir);
+        setCurrentIndex(prev => (prev + dir + filteredImages.length) % filteredImages.length);
     }, [filteredImages.length]);
 
     useEffect(() => {
-        const onKey = (e) => { if (e.key === 'Escape') closeLightbox(); };
-        if (currentIndex !== null) window.addEventListener('keydown', onKey);
+        if (currentIndex === null) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape')      closeLightbox();
+            if (e.key === 'ArrowRight')  paginate(1);
+            if (e.key === 'ArrowLeft')   paginate(-1);
+        };
+        window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [currentIndex, closeLightbox]);
+    }, [currentIndex, closeLightbox, paginate]);
 
     useEffect(() => {
-        if (currentIndex !== null) {
-            const timer = setTimeout(() => paginate(1), 8000);
-            return () => clearTimeout(timer);
-        }
+        if (currentIndex === null) return;
+        const timer = setTimeout(() => paginate(1), 8000);
+        return () => clearTimeout(timer);
     }, [currentIndex, paginate]);
 
-    const handleDragEnd = (e, { offset, velocity }) => {
-        if (Math.abs(offset.x) > 50 && Math.abs(velocity.x) > 300) paginate(offset.x > 0 ? -1 : 1);
+    const handleDragEnd = (_, { offset, velocity }) => {
+        if (Math.abs(offset.x) > 50 || Math.abs(velocity.x) > 300)
+            paginate(offset.x > 0 ? -1 : 1);
     };
 
     const slideVariants = {
-        enter: (d) => ({ x: d > 0 ? '100%' : d < 0 ? '-100%' : 0, opacity: 0 }),
+        enter: (d) => ({ x: d > 0 ? '100%' : '-100%', opacity: 0 }),
         center: { x: 0, opacity: 1 },
-        exit:  (d) => ({ x: d < 0 ? '100%' : d > 0 ? '-100%' : 0, opacity: 0 }),
+        exit:  (d) => ({ x: d < 0 ? '100%' : '-100%', opacity: 0 }),
     };
 
+    // ── Admin ─────────────────────────────────────────────────────────────────
+    const handleLogin = () => {
+        if (adminPw === ADMIN_HASH) {
+            setIsAdmin(true); setShowLogin(false); setAdminPw(''); setPwError(false);
+        } else {
+            setPwError(true); setTimeout(() => setPwError(false), 2000);
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+        if (!files.length) return;
+        let done = 0;
+        const newImgs = [];
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                newImgs.push({ src: ev.target.result, alt: file.name.replace(/\.[^.]+$/, ''), cat: 'exterior', size: 'md:col-span-1 md:row-span-1', custom: true });
+                if (++done === files.length) {
+                    setExtraImages(prev => {
+                        const updated = [...prev, ...newImgs];
+                        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+                        return updated;
+                    });
+                    setUploadToast(`${newImgs.length} Bild${newImgs.length > 1 ? 'er' : ''} hinzugefügt ✓`);
+                    setTimeout(() => setUploadToast(''), 3000);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+    };
+
+    const deleteImage = (img) => {
+        setExtraImages(prev => {
+            const updated = prev.filter(i => i !== img);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+            return updated;
+        });
+        closeLightbox();
+    };
+
+    // ── Styles ────────────────────────────────────────────────────────────────
     const cardGlass = darkMode
         ? 'border-white/8 bg-white/3'
         : 'border-white/60 bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]';
@@ -71,19 +134,16 @@ export default function Gallery({ darkMode, lang }) {
     return (
         <section id="gallery" className="py-24 md:py-32 px-4 md:px-6 max-w-7xl mx-auto overflow-hidden">
 
-            {/* Header */}
+            {/* ── Header ── */}
             <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
                 className="text-center mb-14"
             >
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.1, duration: 0.6 }}
+                    initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }} transition={{ delay: 0.1, duration: 0.6 }}
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 ${
                         darkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'
                     }`}
@@ -98,32 +158,25 @@ export default function Gallery({ darkMode, lang }) {
                 </h2>
 
                 <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.2, duration: 0.7 }}
+                    initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.7 }}
                     className={`text-sm font-medium max-w-md mx-auto leading-relaxed mb-8 ${darkMode ? 'text-white/35' : 'text-black/40'}`}
                 >
-                    {lang === 'de'
-                        ? 'Jedes Bild erzählt eine Geschichte. Klicken Sie auf ein Bild um es zu vergrößern.'
-                        : 'Every photo tells a story. Click an image to enlarge it.'}
+                    {lang === 'de' ? 'Jedes Bild erzählt eine Geschichte. Klicken Sie auf ein Bild um es zu vergrößern.' : 'Every photo tells a story. Click an image to enlarge it.'}
                 </motion.p>
 
-                {/* Category filter */}
+                {/* Filter-Tabs */}
                 <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.25, duration: 0.7 }}
+                    initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }} transition={{ delay: 0.25, duration: 0.7 }}
                     className={`inline-flex items-center gap-1 p-1.5 rounded-2xl border backdrop-blur-xl ${
                         darkMode ? 'bg-white/[0.04] border-white/[0.08]' : 'bg-white/60 border-black/[0.06] shadow-md'
                     }`}
                 >
                     {categories.map(cat => (
-                        <button
-                            key={cat.id}
+                        <button key={cat.id}
                             onClick={() => { setActiveTab(cat.id); setCurrentIndex(null); }}
-                            className={`relative px-5 md:px-7 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                            className={`relative px-4 md:px-7 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
                                 activeTab === cat.id ? 'text-white' : darkMode ? 'text-white/30 hover:text-white/60' : 'text-black/35 hover:text-black/60'
                             }`}
                         >
@@ -136,12 +189,12 @@ export default function Gallery({ darkMode, lang }) {
                 </motion.div>
             </motion.div>
 
-            {/* Image Grid — no Before/After badge in grid, only in lightbox */}
+            {/* ── Grid ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[160px] md:auto-rows-[280px] gap-3 md:gap-5">
                 <AnimatePresence mode="popLayout">
                     {filteredImages.map((image, index) => (
                         <motion.div
-                            key={image.alt + activeTab}
+                            key={image.alt + activeTab + index}
                             layout
                             initial={{ opacity: 0, scale: 0.92, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -152,9 +205,7 @@ export default function Gallery({ darkMode, lang }) {
                             onClick={() => openLightbox(index)}
                             className={`${image.size} rounded-[2rem] md:rounded-[3rem] overflow-hidden relative group cursor-pointer border ${cardGlass} backdrop-blur-sm bg-black`}
                         >
-                            <img
-                                src={image.src}
-                                alt={image.alt}
+                            <img src={image.src} alt={image.alt}
                                 className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-95 transition-all duration-700"
                                 style={{ transform: 'scale(1)', transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease' }}
                                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
@@ -163,35 +214,130 @@ export default function Gallery({ darkMode, lang }) {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                             <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 translate-y-3 group-hover:translate-y-0 transition-all duration-400">
                                 <p className="text-white text-[10px] font-black uppercase tracking-widest">{image.alt}</p>
-                                <p className="text-white/50 text-[8px] font-bold uppercase mt-0.5">
-                                    {lang === 'de' ? 'Klicken zum Vergrößern' : 'Click to enlarge'}
-                                </p>
+                                <p className="text-white/50 text-[8px] font-bold uppercase mt-0.5">{lang === 'de' ? 'Klicken zum Vergrößern' : 'Click to enlarge'}</p>
                             </div>
                             <div className="absolute inset-0 ring-0 group-hover:ring-2 group-hover:ring-blue-500/40 rounded-[2rem] md:rounded-[3rem] transition-all duration-300" />
                         </motion.div>
                     ))}
                 </AnimatePresence>
+
+                {/* Admin: + Button */}
+                {isAdmin && (
+                    <motion.button
+                        layout
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`rounded-[2rem] md:rounded-[3rem] border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
+                            darkMode ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/12 hover:border-blue-400/70' : 'border-blue-400/40 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-400'
+                        }`}
+                    >
+                        <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.45)]">
+                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${darkMode ? 'text-white/40' : 'text-black/35'}`}>
+                            {lang === 'de' ? 'Bild hinzufügen' : 'Add image'}
+                        </span>
+                    </motion.button>
+                )}
             </div>
 
-            {/* Lightbox */}
+            {/* Admin-Bar */}
+            <div className="mt-10 flex justify-center">
+                {!isAdmin ? (
+                    <button onClick={() => setShowLogin(v => !v)}
+                        className={`text-[8px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full border transition-all duration-200 ${
+                            darkMode ? 'border-white/8 text-white/12 hover:text-white/25 hover:border-white/18' : 'border-black/6 text-black/12 hover:text-black/25 hover:border-black/12'
+                        }`}
+                    >Admin</button>
+                ) : (
+                    <button onClick={() => setIsAdmin(false)}
+                        className="text-[8px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full border border-blue-500/30 text-blue-500/60 hover:text-blue-400 hover:border-blue-500/50 transition-all duration-200"
+                    >
+                        {lang === 'de' ? 'Admin-Modus beenden' : 'Exit admin'}
+                    </button>
+                )}
+            </div>
+
+            {/* Hidden file input */}
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
+
+            {/* Admin Login Modal */}
+            <AnimatePresence>
+                {showLogin && !isAdmin && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/65 backdrop-blur-xl px-6"
+                        onClick={() => setShowLogin(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.88, y: 24 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 24 }}
+                            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                            onClick={e => e.stopPropagation()}
+                            className={`w-full max-w-sm p-8 rounded-[2rem] border backdrop-blur-2xl ${
+                                darkMode ? 'bg-[#111]/92 border-white/10' : 'bg-white/96 border-black/8'
+                            }`}
+                        >
+                            <p className={`text-xs font-black uppercase tracking-[0.3em] mb-6 ${darkMode ? 'text-white/50' : 'text-black/45'}`}>Admin Login</p>
+                            <input
+                                type="password" value={adminPw}
+                                onChange={e => setAdminPw(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                placeholder="Passwort" autoFocus
+                                className={`w-full px-5 py-4 rounded-2xl border outline-none text-sm font-bold transition-all mb-4 ${
+                                    pwError
+                                        ? 'border-red-500 bg-red-500/10 text-red-400 placeholder:text-red-400/40 animate-pulse'
+                                        : darkMode
+                                            ? 'bg-white/[0.06] border-white/10 text-white placeholder:text-white/25 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
+                                            : 'bg-black/[0.04] border-black/10 text-black placeholder:text-black/25 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
+                                }`}
+                            />
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogin}
+                                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-colors ${
+                                    pwError ? 'bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
+                                }`}
+                            >
+                                {pwError ? (lang === 'de' ? 'Falsches Passwort' : 'Wrong password') : (lang === 'de' ? 'Einloggen' : 'Login')}
+                            </motion.button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Upload Toast */}
+            <AnimatePresence>
+                {uploadToast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[3000] px-5 py-3 rounded-full bg-green-500 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-green-500/25 flex items-center gap-2 whitespace-nowrap pointer-events-none"
+                    >
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                        {uploadToast}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ══════════════ LIGHTBOX ══════════════ */}
             <AnimatePresence>
                 {currentIndex !== null && (
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.25 }}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22 }}
                         className="fixed inset-0 z-[2100] bg-black/96 backdrop-blur-3xl flex items-center justify-center"
                         onClick={closeLightbox}
                     >
-                        {/* ── Schließen-Button oben rechts ── */}
+                        {/* ── Schließen — oben RECHTS damit es nicht das Sidemenu-Icon überlappt ── */}
                         <motion.button
-                            initial={{ opacity: 0, scale: 0.7 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.7 }}
-                            transition={{ delay: 0.1, type: 'spring', stiffness: 320, damping: 22 }}
+                            initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
+                            transition={{ delay: 0.08, type: 'spring', stiffness: 340, damping: 24 }}
                             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-                            className="absolute top-4 right-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/20 text-white transition-all duration-200 active:scale-90"
+                            className="absolute top-4 right-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-red-500/70 border border-white/15 text-white transition-all duration-150 active:scale-90 touch-manipulation"
                             aria-label="Schließen"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
@@ -199,44 +345,56 @@ export default function Gallery({ darkMode, lang }) {
                             </svg>
                         </motion.button>
 
-                        {/* ── Dots Navigation ── */}
-                        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[2110] flex gap-2">
+                        {/* Admin: Bild löschen */}
+                        {isAdmin && filteredImages[currentIndex]?.custom && (
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                                transition={{ delay: 0.1 }}
+                                onClick={(e) => { e.stopPropagation(); deleteImage(filteredImages[currentIndex]); }}
+                                className="absolute top-4 right-[68px] z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-red-500/15 hover:bg-red-500/60 border border-red-500/25 text-red-400 hover:text-white transition-all duration-150 active:scale-90 touch-manipulation"
+                                aria-label="Bild löschen"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </motion.button>
+                        )}
+
+                        {/* Dots */}
+                        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[2110] flex gap-1.5 max-w-[55vw] overflow-hidden">
                             {filteredImages.map((_, i) => (
                                 <button key={i} onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
-                                    className={`h-1.5 rounded-full transition-all duration-300 ${i === currentIndex ? 'w-7 bg-blue-500' : 'w-2 bg-white/25 hover:bg-white/50'}`}
+                                    className={`h-1.5 rounded-full flex-shrink-0 transition-all duration-300 touch-manipulation ${i === currentIndex ? 'w-7 bg-blue-500' : 'w-2 bg-white/25 hover:bg-white/50'}`}
                                 />
                             ))}
                         </div>
 
-                        {/* ── Bildtitel unten ── */}
-                        <motion.div
-                            key={currentIndex + '-title'}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 }}
-                            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[2110] text-center pointer-events-none"
+                        {/* Bildtitel */}
+                        <motion.p
+                            key={currentIndex + '-t'}
+                            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.12 }}
+                            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[2110] text-white/45 text-[10px] font-black uppercase tracking-[0.3em] pointer-events-none whitespace-nowrap"
                         >
-                            <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em]">
-                                {filteredImages[currentIndex]?.alt}
-                            </p>
-                        </motion.div>
+                            {filteredImages[currentIndex]?.alt}
+                        </motion.p>
 
-                        {/* ── Desktop Pfeile links/rechts ── */}
+                        {/* Desktop Pfeile */}
                         <div className="absolute inset-x-4 md:inset-x-6 top-1/2 -translate-y-1/2 hidden md:flex justify-between z-[2110] pointer-events-none">
-                            {[{ dir: -1, icon: 'M15 19l-7-7 7-7' }, { dir: 1, icon: 'M9 5l7 7-7 7' }].map(({ dir, icon }) => (
+                            {[{ dir: -1, d: 'M15 19l-7-7 7-7' }, { dir: 1, d: 'M9 5l7 7-7 7' }].map(({ dir, d }) => (
                                 <motion.button key={dir} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
                                     onClick={(e) => { e.stopPropagation(); paginate(dir); }}
                                     className="p-4 text-white bg-white/[0.06] hover:bg-blue-600 rounded-2xl border border-white/10 pointer-events-auto transition-all duration-200 backdrop-blur-xl"
                                 >
                                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={icon} />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={d} />
                                     </svg>
                                 </motion.button>
                             ))}
                         </div>
 
-                        {/* ── Bild ── */}
-                        <div className="relative w-full h-[80vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        {/* Bild */}
+                        <div className="relative w-full h-[80vh] flex items-center justify-center" onClick={e => e.stopPropagation()}>
                             <AnimatePresence initial={false} custom={direction}>
                                 <motion.div
                                     key={currentIndex}
@@ -254,7 +412,7 @@ export default function Gallery({ darkMode, lang }) {
                                         key={currentIndex + '-img'}
                                         initial={{ opacity: 0, scale: 0.96 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                        transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
                                         src={filteredImages[currentIndex]?.src}
                                         className="max-h-full max-w-full object-contain rounded-2xl md:rounded-[2rem] shadow-2xl select-none"
                                         alt={filteredImages[currentIndex]?.alt}
@@ -264,9 +422,9 @@ export default function Gallery({ darkMode, lang }) {
                             </AnimatePresence>
                         </div>
 
-                        {/* ── Mobile Swipe-Hint ── */}
-                        <p className="absolute bottom-3 left-1/2 -translate-x-1/2 md:hidden text-white/25 text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
-                            {t.gallerySwipeTip || 'Swipe to change'}
+                        {/* Mobile swipe hint */}
+                        <p className="absolute bottom-2 left-1/2 -translate-x-1/2 md:hidden text-white/20 text-[7px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
+                            {t.gallerySwipeTip || 'Swipe ← →'}
                         </p>
                     </motion.div>
                 )}
