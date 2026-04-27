@@ -10,16 +10,95 @@ const LOCATIONS = [
 ];
 
 // ── Fahrtkosten-Kalkulation ──────────────────────────────────────────────────
-// Basis: 10L/100km · aktueller AT-Spritpreis · Hin+Rück · +30% Aufschlag
-const FUEL_L_PER_100KM = 10;
-const FUEL_PRICE_EUR   = 1.55;   // €/L — Super E10 Österreich
+// Basis: 5.8L/100km · aktueller AT-Spritpreis · Hin+Rück · +30% Aufschlag
+const FUEL_L_PER_100KM = 5.8;
+const FUEL_TANK_L      = 57;     // Tankgröße (zur Info)
+const FUEL_FALLBACK    = 1.55;   // €/L Fallback falls API nicht erreichbar
 const OVERHEAD_FACTOR  = 1.30;   // +30% für Zeit, Abnutzung, Aufwand
 const FREE_KM          = 3;      // bis 3 km Luftlinie kostenlos
 
-function estimateTravelFee(km) {
+// Cache-Key für localStorage
+const PRICE_CACHE_KEY = 'at_fuel_price_cache';
+const PRICE_CACHE_TTL = 60 * 60 * 1000; // 1 Stunde
+
+// Hook: lädt den aktuellen Super E10 Preis aus AT (spritpreisrechner.at API)
+function useAustrianFuelPrice() {
+    const [price, setPrice]   = useState(FUEL_FALLBACK);
+    const [source, setSource] = useState('fallback'); // 'live' | 'cache' | 'fallback'
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function load() {
+            // 1) Erst localStorage-Cache prüfen
+            try {
+                const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || 'null');
+                if (cached && Date.now() - cached.ts < PRICE_CACHE_TTL) {
+                    if (!cancelled) { setPrice(cached.price); setSource('cache'); setLoading(false); }
+                    // Trotzdem im Hintergrund frisch laden
+                }
+            } catch {}
+
+            // 2) Spritpreisrechner.at API (offizielle AT Regierungs-API)
+            //    Endpoint: alle Tankstellen Österreich, sortiert nach Preis, Kraftstoff: SUP (Super E10)
+            const API_URL = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=SUP&includeClosed=false';
+
+            // CORS-Proxy-Kette: erst direkt, dann Fallbacks
+            const PROXIES = [
+                url => url,                                                         // direkt (klappt manchmal mit CORS-Header)
+                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            ];
+
+            for (const proxy of PROXIES) {
+                try {
+                    const res = await fetch(proxy(API_URL), {
+                        headers: { 'Accept': 'application/json' },
+                        signal: AbortSignal.timeout(8000),
+                    });
+                    if (!res.ok) continue;
+                    const data = await res.json();
+
+                    // API gibt Array von Tankstellen zurück, jede hat prices: [{amount, fuelType}]
+                    const amounts = (Array.isArray(data) ? data : [])
+                        .flatMap(s => s.prices || [])
+                        .filter(p => p.fuelType === 'SUP' && typeof p.amount === 'number' && p.amount > 0.5 && p.amount < 4)
+                        .map(p => p.amount);
+
+                    if (amounts.length === 0) continue;
+
+                    // Median-Preis berechnen (robuster als Durchschnitt gegen Ausreißer)
+                    amounts.sort((a, b) => a - b);
+                    const median = amounts[Math.floor(amounts.length / 2)];
+                    const rounded = Math.round(median * 1000) / 1000;
+
+                    // In Cache schreiben
+                    try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({ price: rounded, ts: Date.now() })); } catch {}
+
+                    if (!cancelled) { setPrice(rounded); setSource('live'); setLoading(false); }
+                    return;
+                } catch { /* nächsten Proxy versuchen */ }
+            }
+
+            // 3) Alle Proxies gescheitert → Cache oder Hardcode
+            if (!cancelled) setLoading(false);
+        }
+
+        load();
+        // Alle 30 Min neu laden
+        const interval = setInterval(load, 30 * 60 * 1000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, []);
+
+    return { price, source, loading };
+}
+
+function estimateTravelFee(km, fuelPrice) {
     if (km <= FREE_KM) return 0;
     const roundTrip = km * 2;
-    const fuelCost  = roundTrip * (FUEL_L_PER_100KM / 100) * FUEL_PRICE_EUR;
+    const fuelCost  = roundTrip * (FUEL_L_PER_100KM / 100) * fuelPrice;
     const totalRaw  = fuelCost * OVERHEAD_FACTOR;
     return Math.round(totalRaw * 2) / 2; // auf 0.50€ runden
 }
@@ -62,6 +141,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const t = translations[lang] || translations.de;
     const form = useRef();
     const { coords: userCoords, city: userCity } = useLocation();
+    const { price: fuelPrice, source: fuelSource, loading: fuelLoading } = useAustrianFuelPrice();
 
     // Form state
     const [status, setStatus]               = useState('idle');
@@ -86,12 +166,11 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         const base = LOCATION_COORDS[selectedBase];
         const km   = haversineKm(base.lat, base.lon, lat, lon);
         setTravelKm(Math.round(km));
-        setTravelFee(estimateTravelFee(km));
+        setTravelFee(estimateTravelFee(km, fuelPrice));
         setAddrGeo({ lat, lon, display: userCity });
-        // Adressfeld mit Stadt vorausfüllen (der User kann es noch ändern)
         if (!customerAddr) setCustomerAddr(userCity);
         setAddrPrefilled(true);
-    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity]);
+    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity, fuelPrice]);
 
     // Calendar state
     const today = new Date();
@@ -131,7 +210,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
             const base = LOCATION_COORDS[selectedBase];
             const km   = haversineKm(base.lat, base.lon, geo.lat, geo.lon);
             setTravelKm(Math.round(km));
-            setTravelFee(estimateTravelFee(km));
+            setTravelFee(estimateTravelFee(km, fuelPrice));
         } else {
             setAddrGeo(null);
             setTravelFee(0);
@@ -288,6 +367,13 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                         <span>🚗 {lang === 'de' ? 'Fahrtkosten' : 'Travel fee'}</span>
                                         <span className={`ml-2 text-[8px] font-bold normal-case ${darkMode ? 'text-white/25' : 'text-black/30'}`}>
                                             ~{travelKm} km · Hin+Rück
+                                        </span>
+                                        {/* Live-Preis Indikator */}
+                                        <span className={`ml-2 text-[8px] font-bold normal-case inline-flex items-center gap-1 ${fuelSource === 'live' ? 'text-green-500' : fuelSource === 'cache' ? 'text-yellow-500' : 'text-white/20'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full inline-block ${fuelSource === 'live' ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)] animate-pulse' : fuelSource === 'cache' ? 'bg-yellow-400' : 'bg-white/20'}`} />
+                                            {fuelPrice.toFixed(3)}€/L
+                                            {fuelSource === 'live' && ' live'}
+                                            {fuelSource === 'cache' && ' cached'}
                                         </span>
                                     </div>
                                     <span className="text-blue-500">+{travelFee}€</span>
@@ -464,8 +550,8 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                             {/* Fee info */}
                                             <p className={`text-[8px] font-bold uppercase tracking-widest ml-2 ${darkMode ? 'text-white/20' : 'text-black/25'}`}>
                                                 {lang === 'de'
-                                                    ? `Bis ${FREE_KM} km kostenlos · danach ${(FUEL_L_PER_100KM/100 * FUEL_PRICE_EUR * 2 * OVERHEAD_FACTOR).toFixed(2).replace('.',',')}€/km (Hin+Rück · 10L/100km · ${FUEL_PRICE_EUR.toFixed(2).replace('.',',')}€/L)`
-                                                    : `Up to ${FREE_KM} km free · then ${(FUEL_L_PER_100KM/100 * FUEL_PRICE_EUR * 2 * OVERHEAD_FACTOR).toFixed(2)}€/km (round trip · 10L/100km · €${FUEL_PRICE_EUR.toFixed(2)})`
+                                                    ? `Bis ${FREE_KM} km kostenlos · danach ${(FUEL_L_PER_100KM/100 * fuelPrice * 2 * OVERHEAD_FACTOR).toFixed(2).replace('.',',')}€/km (Hin+Rück · ${FUEL_L_PER_100KM}L/100km · ${fuelPrice.toFixed(3).replace('.',',')}€/L${fuelSource === 'live' ? ' live' : ''})`
+                                                    : `Up to ${FREE_KM} km free · then ${(FUEL_L_PER_100KM/100 * fuelPrice * 2 * OVERHEAD_FACTOR).toFixed(2)}€/km (round trip · ${FUEL_L_PER_100KM}L/100km · €${fuelPrice.toFixed(3)}${fuelSource === 'live' ? ' live' : ''})`
                                                 }
                                             </p>
                                         </motion.div>
