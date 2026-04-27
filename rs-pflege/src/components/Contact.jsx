@@ -162,7 +162,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     useEffect(() => {
         if (serviceMode !== 'home' || addrPrefilled) return;
         if (!userCoords) return;
-        if (fuelLoading) return; // Warten bis fuelPrice bereit ist → kein NaN
         const { lat, lon } = userCoords;
         const base = LOCATION_COORDS[selectedBase];
         const km   = haversineKm(base.lat, base.lon, lat, lon);
@@ -171,7 +170,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         setAddrGeo({ lat, lon, display: userCity });
         if (!customerAddr) setCustomerAddr(userCity);
         setAddrPrefilled(true);
-    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity, fuelPrice, fuelLoading]);
+    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity, fuelPrice]);
 
     // Calendar state
     const today = new Date();
