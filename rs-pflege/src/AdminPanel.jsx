@@ -1,12 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const STORAGE_KEY = 'gallery_extra_images';
 
 export default function AdminPanel({ darkMode }) {
     const [orders, setOrders] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('orders');
+    const [galleryImages, setGalleryImages] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+        catch { return []; }
+    });
+    const [uploadToast, setUploadToast] = useState('');
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         fetchAdminData();
@@ -30,6 +38,39 @@ export default function AdminPanel({ darkMode }) {
         if (window.confirm("Ticket wirklich löschen?")) {
             await supabase.from('support_tickets').delete().eq('id', id);
         }
+    };
+
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+        if (!files.length) return;
+        let done = 0;
+        const newImgs = [];
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                newImgs.push({ src: ev.target.result, alt: file.name.replace(/\.[^.]+$/, ''), cat: 'exterior', size: 'md:col-span-1 md:row-span-1', custom: true });
+                if (++done === files.length) {
+                    setGalleryImages(prev => {
+                        const updated = [...prev, ...newImgs];
+                        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+                        return updated;
+                    });
+                    setUploadToast(`${newImgs.length} Bild${newImgs.length > 1 ? 'er' : ''} hinzugefügt ✓`);
+                    setTimeout(() => setUploadToast(''), 3000);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+    };
+
+    const deleteGalleryImage = (img) => {
+        if (!window.confirm('Bild wirklich löschen?')) return;
+        setGalleryImages(prev => {
+            const updated = prev.filter(i => i !== img);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+            return updated;
+        });
     };
 
     const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0);
@@ -117,6 +158,7 @@ export default function AdminPanel({ darkMode }) {
                     {[
                         { key: 'orders', label: 'Verkäufe' },
                         { key: 'tickets', label: 'Support' },
+                        { key: 'gallery', label: 'Galerie' },
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -217,7 +259,7 @@ export default function AdminPanel({ darkMode }) {
                                     </table>
                                 )}
                             </motion.div>
-                        ) : (
+                        ) : activeTab === 'tickets' ? (
                             <motion.div
                                 key="tickets"
                                 initial={{ opacity: 0, y: 6 }}
@@ -279,9 +321,87 @@ export default function AdminPanel({ darkMode }) {
                                     </motion.div>
                                 ))}
                             </motion.div>
+                        ) : (
+                            /* ─── Gallery Tab ─── */
+                            <motion.div
+                                key="gallery"
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.2, ease: [0.4,0,0.2,1] }}
+                            >
+                                {/* Upload Button */}
+                                <div className="px-6 py-4 flex items-center justify-between border-b"
+                                    style={{ borderColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                                    <p className={`text-[13px] font-medium ${darkMode ? 'text-white/50' : 'text-black/45'}`}>
+                                        {galleryImages.length} eigene Bilder
+                                    </p>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-semibold transition-colors"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                            <path d="M12 4v16m8-8H4" strokeLinecap="round"/>
+                                        </svg>
+                                        Bilder hochladen
+                                    </button>
+                                </div>
+
+                                {/* Image Grid */}
+                                {galleryImages.length === 0 ? (
+                                    <EmptyState label="Keine eigenen Bilder" darkMode={darkMode} />
+                                ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-6">
+                                        {galleryImages.map((img, i) => (
+                                            <motion.div
+                                                key={i}
+                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: i * 0.04 }}
+                                                className="relative group rounded-xl overflow-hidden aspect-square"
+                                            >
+                                                <img src={img.src} alt={img.alt}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center">
+                                                    <button
+                                                        onClick={() => deleteGalleryImage(img)}
+                                                        className="opacity-0 group-hover:opacity-100 w-9 h-9 rounded-full bg-red-500 flex items-center justify-center text-white transition-all duration-200 hover:bg-red-600"
+                                                    >
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <p className={`absolute bottom-0 inset-x-0 px-2 py-1 text-[9px] font-semibold truncate ${darkMode ? 'bg-black/60 text-white/60' : 'bg-black/40 text-white/80'}`}>
+                                                    {img.alt}
+                                                </p>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
+
+                {/* Hidden file input */}
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
+
+                {/* Upload Toast */}
+                <AnimatePresence>
+                    {uploadToast && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[3000] px-5 py-3 rounded-full bg-green-500 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-green-500/25 flex items-center gap-2 whitespace-nowrap pointer-events-none"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                            {uploadToast}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
             </div>
         </div>

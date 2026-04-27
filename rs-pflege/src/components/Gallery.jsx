@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from './supabaseClient';
 
 import imgSuv         from '../assets/bmw-suv.jpg';
 import imgSedan       from '../assets/bmw-heck.jpg';
 import imgDash        from '../assets/bmw-innen.jpg';
 import imgConvertible from '../assets/bmw-cabrio.jpg';
 
-// ── Admin-Passwort (hier ändern) ─────────────────────────────────────────────
-const ADMIN_HASH = 'rspflege2024';
 const STORAGE_KEY = 'gallery_extra_images';
 
 export default function Gallery({ darkMode, lang }) {
@@ -20,14 +19,22 @@ export default function Gallery({ darkMode, lang }) {
     const [currentIndex,   setCurrentIndex]   = useState(null);
     const [direction,      setDirection]      = useState(0);
     const [isAdmin,        setIsAdmin]        = useState(false);
-    const [showLogin,      setShowLogin]      = useState(false);
-    const [adminPw,        setAdminPw]        = useState('');
-    const [pwError,        setPwError]        = useState(false);
     const [uploadToast,    setUploadToast]    = useState('');
     const [extraImages,    setExtraImages]    = useState(() => {
         try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
         catch { return []; }
     });
+
+    // ── Supabase-Session → Admin-Status ───────────────────────────────────────
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsAdmin(!!session);
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setIsAdmin(!!session);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
 
     const categories = [
         { id: 'all',      label: t.galleryCatAll || 'Alle' },
@@ -85,13 +92,6 @@ export default function Gallery({ darkMode, lang }) {
     };
 
     // ── Admin ─────────────────────────────────────────────────────────────────
-    const handleLogin = () => {
-        if (adminPw === ADMIN_HASH) {
-            setIsAdmin(true); setShowLogin(false); setAdminPw(''); setPwError(false);
-        } else {
-            setPwError(true); setTimeout(() => setPwError(false), 2000);
-        }
-    };
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
@@ -246,68 +246,17 @@ export default function Gallery({ darkMode, lang }) {
                 )}
             </div>
 
-            {/* Admin-Bar */}
-            <div className="mt-10 flex justify-center">
-                {!isAdmin ? (
-                    <button onClick={() => setShowLogin(v => !v)}
-                        className={`text-[8px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full border transition-all duration-200 ${
-                            darkMode ? 'border-white/8 text-white/12 hover:text-white/25 hover:border-white/18' : 'border-black/6 text-black/12 hover:text-black/25 hover:border-black/12'
-                        }`}
-                    >Admin</button>
-                ) : (
-                    <button onClick={() => setIsAdmin(false)}
-                        className="text-[8px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full border border-blue-500/30 text-blue-500/60 hover:text-blue-400 hover:border-blue-500/50 transition-all duration-200"
-                    >
-                        {lang === 'de' ? 'Admin-Modus beenden' : 'Exit admin'}
-                    </button>
-                )}
-            </div>
+            {/* Admin-Bar — nur sichtbar wenn per Supabase eingeloggt */}
+            {isAdmin && (
+                <div className="mt-10 flex justify-center">
+                    <div className={`text-[8px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full border border-blue-500/30 text-blue-500/60`}>
+                        {lang === 'de' ? '✓ Admin-Modus aktiv' : '✓ Admin mode active'}
+                    </div>
+                </div>
+            )}
 
             {/* Hidden file input */}
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
-
-            {/* Admin Login Modal */}
-            <AnimatePresence>
-                {showLogin && !isAdmin && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/65 backdrop-blur-xl px-6"
-                        onClick={() => setShowLogin(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.88, y: 24 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 24 }}
-                            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-                            onClick={e => e.stopPropagation()}
-                            className={`w-full max-w-sm p-8 rounded-[2rem] border backdrop-blur-2xl ${
-                                darkMode ? 'bg-[#111]/92 border-white/10' : 'bg-white/96 border-black/8'
-                            }`}
-                        >
-                            <p className={`text-xs font-black uppercase tracking-[0.3em] mb-6 ${darkMode ? 'text-white/50' : 'text-black/45'}`}>Admin Login</p>
-                            <input
-                                type="password" value={adminPw}
-                                onChange={e => setAdminPw(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                                placeholder="Passwort" autoFocus
-                                className={`w-full px-5 py-4 rounded-2xl border outline-none text-sm font-bold transition-all mb-4 ${
-                                    pwError
-                                        ? 'border-red-500 bg-red-500/10 text-red-400 placeholder:text-red-400/40 animate-pulse'
-                                        : darkMode
-                                            ? 'bg-white/[0.06] border-white/10 text-white placeholder:text-white/25 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
-                                            : 'bg-black/[0.04] border-black/10 text-black placeholder:text-black/25 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
-                                }`}
-                            />
-                            <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogin}
-                                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-colors ${
-                                    pwError ? 'bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
-                                }`}
-                            >
-                                {pwError ? (lang === 'de' ? 'Falsches Passwort' : 'Wrong password') : (lang === 'de' ? 'Einloggen' : 'Login')}
-                            </motion.button>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
             {/* Upload Toast */}
             <AnimatePresence>
                 {uploadToast && (
