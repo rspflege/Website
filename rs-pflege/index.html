@@ -1,20 +1,55 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/logo-rs.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="description" content="RS Pflege – Professionelle Fahrzeugpflege in Vöcklabruck & Gmunden" />
+
+  <link rel="icon" type="image/png" href="/logo-rs.png" />
+  <link rel="apple-touch-icon" href="/logo-rs.png" />
+
+  <!-- Google Fonts: preconnect first for speed -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Montserrat:wght@300;400;700&display=swap"
-    rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.paypal.com/sdk/js?client-id=DEINE_CLIENT_ID&currency=EUR"></script>
-  <title>rs-pflege</title>
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <title>RS Pflege</title>
+
+  <!-- Global performance: disable tap highlight, smooth scroll -->
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+
+    /* Reduce motion — disable all CSS transitions/animations for users who prefer it */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Prevent layout shift from scrollbar */
+    html { scrollbar-gutter: stable; }
+
+    /* iOS safe areas */
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+  </style>
 </head>
 
 <body>
   <div id="root"></div>
+  <!-- Vite handles bundling — no CDN scripts needed -->
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
