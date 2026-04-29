@@ -6,8 +6,8 @@ import { useLocation } from './useLocation';
 // ── Basisstandort (XOR-verschlüsselt — kein Klartext im Bundle) ───────────────
 // Koordinaten nur als Byte-Array gespeichert — Adresse ist nirgendwo lesbar
 const _K = 0x4f;
-const _La = [0x7f,0x13,0x08,0x1f,0x7f,0x1e,0x03,0x1a,0x7f,0x1b]; // lat bytes
-const _Lo = [0x7b,0x18,0x0b,0x1c,0x79,0x15,0x00,0x1f,0x7d,0x1e]; // lon bytes
+const _La = [123,120,97,119,119,124,124];  // lat encoded
+const _Lo = [126,124,97,121,126,121,120];  // lon encoded
 const _BASE = (() => {
     const d = a => parseFloat(a.map(b => String.fromCharCode(b ^ _K)).join(''));
     return { lat: d(_La), lon: d(_Lo) };
