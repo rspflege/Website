@@ -11,45 +11,66 @@
   <link rel="icon" type="image/png" href="/logo-rs.png" />
   <link rel="apple-touch-icon" href="/logo-rs.png" />
 
-  <!-- Google Fonts: preconnect first for speed -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,700;0,900;1,700;1,900&display=swap"
     rel="stylesheet"
   />
 
-  <title>RS Pflege</title>
+  <!-- Tailwind CSS CDN — required until local Tailwind is installed -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Configure Tailwind CDN to match your existing classes
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'Montserrat', 'Helvetica Neue', 'sans-serif'],
+          },
+          screens: {
+            xs: '375px',
+          },
+          backdropBlur: {
+            '3xl': '64px',
+            '4xl': '96px',
+          },
+        }
+      }
+    }
+  </script>
 
-  <!-- Global performance: disable tap highlight, smooth scroll -->
-  <style>
-    * { -webkit-tap-highlight-color: transparent; }
+  <style type="text/tailwindcss">
+    /* Apple Glass utility — used across components */
+    .apple-glass {
+      @apply backdrop-blur-3xl bg-white/10 border border-white/10;
+    }
+
+    /* Smooth scroll + tap highlight off */
     html { scroll-behavior: smooth; }
+    * { -webkit-tap-highlight-color: transparent; }
 
-    /* Reduce motion — disable all CSS transitions/animations for users who prefer it */
+    /* iOS safe areas for bottom dock */
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* Reduce motion */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
     }
-
-    /* Prevent layout shift from scrollbar */
-    html { scrollbar-gutter: stable; }
-
-    /* iOS safe areas */
-    body {
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-    }
   </style>
+
+  <title>RS Pflege</title>
 </head>
 
 <body>
   <div id="root"></div>
-  <!-- Vite handles bundling — no CDN scripts needed -->
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
