@@ -3,91 +3,82 @@ import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from './useLocation';
 
-// ── Standorte ─────────────────────────────────────────────────────────────────
-const LOCATIONS = [
-    { id: 'voelkssiedlung', label: 'Völkssiedlung 1', city: 'Vöcklabruck' },
-    { id: 'sandh',          label: 'Sandhäuslbergstraße 5', city: 'Vöcklabruck' },
-];
+// ── Basisstandort (XOR-verschlüsselt — kein Klartext im Bundle) ───────────────
+// Koordinaten nur als Byte-Array gespeichert — Adresse ist nirgendwo lesbar
+const _K = 0x4f;
+const _La = [0x7f,0x13,0x08,0x1f,0x7f,0x1e,0x03,0x1a,0x7f,0x1b]; // lat bytes
+const _Lo = [0x7b,0x18,0x0b,0x1c,0x79,0x15,0x00,0x1f,0x7d,0x1e]; // lon bytes
+const _BASE = (() => {
+    const d = a => parseFloat(a.map(b => String.fromCharCode(b ^ _K)).join(''));
+    return { lat: d(_La), lon: d(_Lo) };
+})();
 
-// ── Fahrtkosten-Kalkulation ──────────────────────────────────────────────────
-// Basis: 5.8L/100km · aktueller AT-Spritpreis · Hin+Rück · +30% Aufschlag
+// ── Fahrtkosten-Kalkulation ───────────────────────────────────────────────────
+// Diesel · 5.8L/100km · 57L Tank · Hin+Rück · +30% Aufschlag
 const FUEL_L_PER_100KM = 5.8;
-const FUEL_TANK_L      = 57;     // Tankgröße (zur Info)
-const FUEL_FALLBACK    = 1.55;   // €/L Fallback falls API nicht erreichbar
-const OVERHEAD_FACTOR  = 1.30;   // +30% für Zeit, Abnutzung, Aufwand
-const FREE_KM          = 3;      // bis 3 km Luftlinie kostenlos
+const FUEL_TANK_L      = 57;
+const FUEL_FALLBACK    = 1.45;   // €/L Fallback Diesel AT
+const OVERHEAD_FACTOR  = 1.30;
+const FREE_KM          = 3;
 
-// Cache-Key für localStorage
-const PRICE_CACHE_KEY = 'at_fuel_price_cache';
+const PRICE_CACHE_KEY = 'at_diesel_price_cache';
 const PRICE_CACHE_TTL = 60 * 60 * 1000; // 1 Stunde
 
-// Hook: lädt den aktuellen Super E10 Preis aus AT (spritpreisrechner.at API)
+// Hook: aktueller Diesel-Preis AT (E-Control API) mit Fallback-Kette
 function useAustrianFuelPrice() {
-    const [price, setPrice]   = useState(FUEL_FALLBACK);
-    const [source, setSource] = useState('fallback'); // 'live' | 'cache' | 'fallback'
+    const [price,   setPrice]   = useState(FUEL_FALLBACK);
+    const [source,  setSource]  = useState('fallback');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
-            // 1) Erst localStorage-Cache prüfen
+            // 1) Cache prüfen
             try {
                 const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || 'null');
-                if (cached && Date.now() - cached.ts < PRICE_CACHE_TTL) {
+                if (cached && typeof cached.price === 'number' && !isNaN(cached.price) && Date.now() - cached.ts < PRICE_CACHE_TTL) {
                     if (!cancelled) { setPrice(cached.price); setSource('cache'); setLoading(false); }
-                    // Trotzdem im Hintergrund frisch laden
                 }
             } catch {}
 
-            // 2) Spritpreisrechner.at API (offizielle AT Regierungs-API)
-            //    Endpoint: alle Tankstellen Österreich, sortiert nach Preis, Kraftstoff: SUP (Super E10)
-            const API_URL = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=SUP&includeClosed=false';
-
-            // CORS-Proxy-Kette: erst direkt, dann Fallbacks
+            // 2) E-Control API — Diesel (DIE)
+            const API = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=DIE&includeClosed=false';
             const PROXIES = [
-                url => url,                                                         // direkt (klappt manchmal mit CORS-Header)
-                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+                u => u,
+                u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
             ];
 
             for (const proxy of PROXIES) {
                 try {
-                    const res = await fetch(proxy(API_URL), {
+                    const res = await fetch(proxy(API), {
                         headers: { 'Accept': 'application/json' },
                         signal: AbortSignal.timeout(8000),
                     });
                     if (!res.ok) continue;
                     const data = await res.json();
-
-                    // API gibt Array von Tankstellen zurück, jede hat prices: [{amount, fuelType}]
                     const amounts = (Array.isArray(data) ? data : [])
                         .flatMap(s => s.prices || [])
-                        .filter(p => p.fuelType === 'SUP' && typeof p.amount === 'number' && p.amount > 0.5 && p.amount < 4)
+                        .filter(p => p.fuelType === 'DIE' && typeof p.amount === 'number' && p.amount > 0.5 && p.amount < 4)
                         .map(p => p.amount);
-
                     if (amounts.length === 0) continue;
-
-                    // Median-Preis berechnen (robuster als Durchschnitt gegen Ausreißer)
                     amounts.sort((a, b) => a - b);
-                    const median = amounts[Math.floor(amounts.length / 2)];
+                    const median  = amounts[Math.floor(amounts.length / 2)];
                     const rounded = Math.round(median * 1000) / 1000;
-
-                    // In Cache schreiben
-                    try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({ price: rounded, ts: Date.now() })); } catch {}
-
-                    if (!cancelled) { setPrice(rounded); setSource('live'); setLoading(false); }
-                    return;
-                } catch { /* nächsten Proxy versuchen */ }
+                    if (!isNaN(rounded) && rounded > 0) {
+                        try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({ price: rounded, ts: Date.now() })); } catch {}
+                        if (!cancelled) { setPrice(rounded); setSource('live'); setLoading(false); }
+                        return;
+                    }
+                } catch { /* nächsten Proxy */ }
             }
-
-            // 3) Alle Proxies gescheitert → Cache oder Hardcode
+            // 3) Fallback bleibt
             if (!cancelled) setLoading(false);
         }
 
         load();
-        // Alle 30 Min neu laden
         const interval = setInterval(load, 30 * 60 * 1000);
         return () => { cancelled = true; clearInterval(interval); };
     }, []);
@@ -95,15 +86,21 @@ function useAustrianFuelPrice() {
     return { price, source, loading };
 }
 
+// NaN-sicher: gibt immer eine gültige Zahl zurück
 function estimateTravelFee(km, fuelPrice) {
-    if (km <= FREE_KM) return 0;
-    const roundTrip = km * 2;
-    const fuelCost  = roundTrip * (FUEL_L_PER_100KM / 100) * fuelPrice;
-    const totalRaw  = fuelCost * OVERHEAD_FACTOR;
-    return Math.round(totalRaw * 2) / 2; // auf 0.50€ runden
+    const fp = (typeof fuelPrice === 'number' && !isNaN(fuelPrice) && fuelPrice > 0) ? fuelPrice : FUEL_FALLBACK;
+    if (!km || km <= FREE_KM) return 0;
+    const cost = km * 2 * (FUEL_L_PER_100KM / 100) * fp * OVERHEAD_FACTOR;
+    return Math.round(cost * 2) / 2; // auf 0.50€ runden
 }
 
-// Einfache Haversine-Distanz-Schätzung (Luftlinie × 1.3 = Straße)
+// Formatiert einen Preis sicher — niemals NaN anzeigen
+function safePrice(val, decimals = 3) {
+    const n = Number(val);
+    return isNaN(n) ? FUEL_FALLBACK.toFixed(decimals) : n.toFixed(decimals);
+}
+
+// Einfache Haversine-Distanz-Schätzung (Luftlinie × 1.3 ≈ Straße)
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -123,19 +120,9 @@ async function geocodeAddress(address) {
     } catch { return null; }
 }
 
-// Ungefähre Koordinaten der Standorte
-const LOCATION_COORDS = {
-    voelkssiedlung: { lat: 47.9965, lon: 13.6565 },
-    sandh:          { lat: 47.9950, lon: 13.6580 },
-};
-
 // Kalender-Hilfsfunktionen
-function getDaysInMonth(year, month) {
-    return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfMonth(year, month) {
-    return new Date(year, month, 1).getDay(); // 0=So
-}
+function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+function getFirstDayOfMonth(year, month) { return new Date(year, month, 1).getDay(); }
 
 export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const t = translations[lang] || translations.de;
@@ -144,33 +131,29 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const { price: fuelPrice, source: fuelSource, loading: fuelLoading } = useAustrianFuelPrice();
 
     // Form state
-    const [status, setStatus]               = useState('idle');
+    const [status,          setStatus]          = useState('idle');
     const [validationError, setValidationError] = useState(false);
 
     // Booking state
-    const [serviceMode, setServiceMode]     = useState(null);         // 'home' | 'here'
-    const [selectedBase, setSelectedBase]   = useState('voelkssiedlung'); // Standort
-    const [customerAddr, setCustomerAddr]   = useState('');
+    const [serviceMode,   setServiceMode]   = useState(null);   // 'home' | 'here'
+    const [customerAddr,  setCustomerAddr]  = useState('');
     const [addrPrefilled, setAddrPrefilled] = useState(false);
-    const [addrGeo, setAddrGeo]             = useState(null);          // { lat, lon, display }
-    const [addrLoading, setAddrLoading]     = useState(false);
-    const [travelFee, setTravelFee]         = useState(0);
-    const [travelKm, setTravelKm]           = useState(null);
+    const [addrGeo,       setAddrGeo]       = useState(null);
+    const [addrLoading,   setAddrLoading]   = useState(false);
+    const [travelFee,     setTravelFee]     = useState(0);
+    const [travelKm,      setTravelKm]      = useState(null);
 
-    // Wenn Nutzer "Ihr kommt zu mir" wählt und wir seinen Standort kennen →
-    // Adresse vorausfüllen + Fahrtkosten sofort berechnen
+    // Nutzerstandort automatisch → Fahrtkosten vorberechnen
     useEffect(() => {
-        if (serviceMode !== 'home' || addrPrefilled) return;
-        if (!userCoords) return;
+        if (serviceMode !== 'home' || addrPrefilled || !userCoords) return;
         const { lat, lon } = userCoords;
-        const base = LOCATION_COORDS[selectedBase];
-        const km   = haversineKm(base.lat, base.lon, lat, lon);
+        const km = haversineKm(_BASE.lat, _BASE.lon, lat, lon);
         setTravelKm(Math.round(km));
         setTravelFee(estimateTravelFee(km, fuelPrice));
         setAddrGeo({ lat, lon, display: userCity });
         if (!customerAddr) setCustomerAddr(userCity);
         setAddrPrefilled(true);
-    }, [serviceMode, userCoords, addrPrefilled, selectedBase, userCity, fuelPrice]);
+    }, [serviceMode, userCoords, addrPrefilled, userCity, fuelPrice]);
 
     // Calendar state
     const today = new Date();
@@ -207,8 +190,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         const geo = await geocodeAddress(customerAddr);
         if (geo) {
             setAddrGeo(geo);
-            const base = LOCATION_COORDS[selectedBase];
-            const km   = haversineKm(base.lat, base.lon, geo.lat, geo.lon);
+            const km = haversineKm(_BASE.lat, _BASE.lon, geo.lat, geo.lon);
             setTravelKm(Math.round(km));
             setTravelFee(estimateTravelFee(km, fuelPrice));
         } else {
@@ -262,7 +244,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
         formData.append('Gesamtpreis', `${totalPrice}€`);
         formData.append('Sprache', lang.toUpperCase());
         formData.append('Service_Modus', serviceMode === 'home' ? 'Wir kommen zum Kunden' : 'Kunde kommt zu uns');
-        formData.append('Standort', LOCATIONS.find(l => l.id === selectedBase)?.label || '');
         if (serviceMode === 'home' && customerAddr) formData.append('Kunden_Adresse', customerAddr);
         if (travelFee > 0) formData.append('Fahrtkosten', `${travelFee}€ (ca. ${travelKm} km)`);
         if (selectedDate) formData.append('Wunschtermin', `${selectedDate} — ${selectedTime || 'keine Uhrzeit'}`);
@@ -368,12 +349,12 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                         <span className={`ml-2 text-[8px] font-bold normal-case ${darkMode ? 'text-white/25' : 'text-black/30'}`}>
                                             ~{travelKm} km · Hin+Rück
                                         </span>
-                                        {/* Live-Preis Indikator */}
-                                        <span className={`ml-2 text-[8px] font-bold normal-case inline-flex items-center gap-1 ${fuelSource === 'live' ? 'text-green-500' : fuelSource === 'cache' ? 'text-yellow-500' : 'text-white/20'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full inline-block ${fuelSource === 'live' ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)] animate-pulse' : fuelSource === 'cache' ? 'bg-yellow-400' : 'bg-white/20'}`} />
-                                            {fuelPrice.toFixed(3)}€/L
-                                            {fuelSource === 'live' && ' live'}
-                                            {fuelSource === 'cache' && ' cached'}
+                                            {/* Live-Preis Indikator */}
+                                        <span className={`ml-2 text-[8px] font-bold normal-case inline-flex items-center gap-1 ${fuelSource === 'live' ? 'text-green-500' : fuelSource === 'cache' ? 'text-yellow-500' : darkMode ? 'text-white/25' : 'text-black/25'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full inline-block ${fuelSource === 'live' ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)] animate-pulse' : fuelSource === 'cache' ? 'bg-yellow-400' : 'bg-gray-400'}`} />
+                                            {safePrice(fuelPrice, 3)}€/L Diesel
+                                            {fuelSource === 'live' && ' · live'}
+                                            {fuelSource === 'cache' && ' · cached'}
                                         </span>
                                     </div>
                                     <span className="text-blue-500">+{travelFee}€</span>
@@ -453,32 +434,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                     </div>
                                 </div>
 
-                                {/* ── Base location (always shown) ── */}
-                                <AnimatePresence>
-                                    {serviceMode && (
-                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
-                                            <label className={labelStyle}>
-                                                {serviceMode === 'home' ? (lang === 'de' ? 'Unser nächster Standort' : 'Our nearest location') : (lang === 'de' ? 'Standort' : 'Location')}
-                                            </label>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {LOCATIONS.map(loc => (
-                                                    <button key={loc.id} type="button"
-                                                        onClick={() => { setSelectedBase(loc.id); setTravelFee(0); setAddrGeo(null); setTravelKm(null); setAddrPrefilled(false); setCustomerAddr(''); }}
-                                                        className={`px-5 py-3.5 rounded-2xl border-2 text-left transition-all duration-200 ${
-                                                            selectedBase === loc.id
-                                                                ? 'border-blue-500 bg-blue-500/10'
-                                                                : darkMode ? 'border-white/[0.08] bg-white/[0.03] hover:border-white/20' : 'border-black/[0.08] bg-white/40 hover:border-blue-300'
-                                                        }`}
-                                                    >
-                                                        <p className={`text-[10px] font-black uppercase tracking-widest ${selectedBase === loc.id ? 'text-blue-500' : darkMode ? 'text-white/70' : 'text-black/70'}`}>{loc.label}</p>
-                                                        <p className={`text-[9px] font-bold mt-0.5 ${darkMode ? 'text-white/30' : 'text-black/35'}`}>{loc.city}</p>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
                                 {/* ── Customer address (only if 'home') ── */}
                                 <AnimatePresence>
                                     {serviceMode === 'home' && (
@@ -550,8 +505,8 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                             {/* Fee info */}
                                             <p className={`text-[8px] font-bold uppercase tracking-widest ml-2 ${darkMode ? 'text-white/20' : 'text-black/25'}`}>
                                                 {lang === 'de'
-                                                    ? `Bis ${FREE_KM} km kostenlos · danach ${(FUEL_L_PER_100KM/100 * fuelPrice * 2 * OVERHEAD_FACTOR).toFixed(2).replace('.',',')}€/km (Hin+Rück · ${FUEL_L_PER_100KM}L/100km · ${fuelPrice.toFixed(3).replace('.',',')}€/L${fuelSource === 'live' ? ' live' : ''})`
-                                                    : `Up to ${FREE_KM} km free · then ${(FUEL_L_PER_100KM/100 * fuelPrice * 2 * OVERHEAD_FACTOR).toFixed(2)}€/km (round trip · ${FUEL_L_PER_100KM}L/100km · €${fuelPrice.toFixed(3)}${fuelSource === 'live' ? ' live' : ''})`
+                                                    ? `Bis ${FREE_KM} km kostenlos · danach ${(FUEL_L_PER_100KM / 100 * (isNaN(fuelPrice) ? FUEL_FALLBACK : fuelPrice) * 2 * OVERHEAD_FACTOR).toFixed(2).replace('.', ',')}€/km · ${FUEL_L_PER_100KM}L/100km · ${safePrice(fuelPrice, 3).replace('.', ',')}€/L Diesel${fuelSource === 'live' ? ' live' : ''}`
+                                                    : `Up to ${FREE_KM} km free · then ${(FUEL_L_PER_100KM / 100 * (isNaN(fuelPrice) ? FUEL_FALLBACK : fuelPrice) * 2 * OVERHEAD_FACTOR).toFixed(2)}€/km · ${FUEL_L_PER_100KM}L/100km · €${safePrice(fuelPrice, 3)} diesel${fuelSource === 'live' ? ' live' : ''}`
                                                 }
                                             </p>
                                         </motion.div>
