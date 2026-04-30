@@ -274,12 +274,12 @@ export default function Gallery({ darkMode, lang }) {
                         className="fixed inset-0 z-[2100] bg-black/96 backdrop-blur-3xl flex items-center justify-center"
                         onClick={closeLightbox}
                     >
-                        {/* ── Schließen — oben RECHTS damit es nicht das Sidemenu-Icon überlappt ── */}
+                        {/* ── Schließen — oben LINKS, damit es nicht hinter dem Hamburger (top-right z-[150]) liegt ── */}
                         <motion.button
                             initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
                             transition={{ delay: 0.08, type: 'spring', stiffness: 340, damping: 24 }}
                             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-                            className="absolute top-4 right-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-red-500/70 border border-white/15 text-white transition-all duration-150 active:scale-90 touch-manipulation"
+                            className="absolute top-4 left-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-red-500/70 border border-white/15 text-white transition-all duration-150 active:scale-90 touch-manipulation"
                             aria-label="Schließen"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
@@ -293,7 +293,7 @@ export default function Gallery({ darkMode, lang }) {
                                 initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
                                 transition={{ delay: 0.1 }}
                                 onClick={(e) => { e.stopPropagation(); deleteImage(filteredImages[currentIndex]); }}
-                                className="absolute top-4 right-[68px] z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-red-500/15 hover:bg-red-500/60 border border-red-500/25 text-red-400 hover:text-white transition-all duration-150 active:scale-90 touch-manipulation"
+                                className="absolute top-4 left-[68px] z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-red-500/15 hover:bg-red-500/60 border border-red-500/25 text-red-400 hover:text-white transition-all duration-150 active:scale-90 touch-manipulation"
                                 aria-label="Bild löschen"
                             >
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">

@@ -88,19 +88,28 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
             setActiveSection(location.pathname === '/preise' ? 'prices' : '');
             return;
         }
-        const handleScroll = () => {
-            const now = Date.now();
-            if (now - lastScrollTime.current < 80) return; // throttle
-            lastScrollTime.current = now;
+
+        const detectSection = () => {
             if (window.scrollY < 100) { setActiveSection('home'); return; }
             const sections  = ['about', 'gallery', 'kontakt'];
             const scrollPos = window.scrollY + 300;
             for (const id of sections) {
                 const el = document.getElementById(id);
                 if (el && scrollPos >= el.offsetTop && scrollPos < el.offsetTop + el.offsetHeight) {
-                    setActiveSection(id); break;
+                    setActiveSection(id); return;
                 }
             }
+            setActiveSection('home');
+        };
+
+        // Sofort beim Mounten ausführen — kein Warten auf ersten Scroll
+        detectSection();
+
+        const handleScroll = () => {
+            const now = Date.now();
+            if (now - lastScrollTime.current < 80) return;
+            lastScrollTime.current = now;
+            detectSection();
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
@@ -161,6 +170,7 @@ export default function Navbar({ darkMode, setDarkMode, lang = 'de', setLang, se
                 {isActive && (
                     <motion.div
                         layoutId="activeDockTab"
+                        initial={false}
                         className="absolute inset-0 bg-blue-500/10 rounded-xl z-0"
                         transition={{ type: 'spring', bounce: 0.15, duration: 0.45 }}
                     />

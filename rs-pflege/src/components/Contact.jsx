@@ -4,27 +4,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from './useLocation';
 
 // ── Basisstandort (XOR-verschlüsselt — kein Klartext im Bundle) ───────────────
-// Koordinaten nur als Byte-Array gespeichert — Adresse ist nirgendwo lesbar
 const _K = 0x4f;
-const _La = [123,120,97,119,119,124,124];  // lat encoded
-const _Lo = [126,124,97,121,126,121,120];  // lon encoded
+const _La = [123,120,97,119,119,124,124];
+const _Lo = [126,124,97,121,126,121,120];
 const _BASE = (() => {
     const d = a => parseFloat(a.map(b => String.fromCharCode(b ^ _K)).join(''));
     return { lat: d(_La), lon: d(_Lo) };
 })();
 
 // ── Fahrtkosten-Kalkulation ───────────────────────────────────────────────────
-// Diesel · 5.8L/100km · 57L Tank · Hin+Rück · +30% Aufschlag
 const FUEL_L_PER_100KM = 5.8;
 const FUEL_TANK_L      = 57;
-const FUEL_FALLBACK    = 1.45;   // €/L Fallback Diesel AT
+const FUEL_FALLBACK    = 1.45;
 const OVERHEAD_FACTOR  = 1.30;
 const FREE_KM          = 3;
 
 const PRICE_CACHE_KEY = 'at_diesel_price_cache';
-const PRICE_CACHE_TTL = 60 * 60 * 1000; // 1 Stunde
+const PRICE_CACHE_TTL = 60 * 60 * 1000;
 
 // Hook: aktueller Diesel-Preis AT (E-Control API) mit Fallback-Kette
+// FIX: Direktaufruf entfernt (verursachte 400-Fehler) — nur noch CORS-Proxies
 function useAustrianFuelPrice() {
     const [price,   setPrice]   = useState(FUEL_FALLBACK);
     const [source,  setSource]  = useState('fallback');
@@ -39,13 +38,14 @@ function useAustrianFuelPrice() {
                 const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || 'null');
                 if (cached && typeof cached.price === 'number' && !isNaN(cached.price) && Date.now() - cached.ts < PRICE_CACHE_TTL) {
                     if (!cancelled) { setPrice(cached.price); setSource('cache'); setLoading(false); }
+                    return; // Cache gültig → kein Netzwerk-Request nötig
                 }
             } catch {}
 
             // 2) E-Control API — Diesel (DIE)
+            // FIX: Direktaufruf (u => u) entfernt, da E-Control CORS blockiert → 400/403
             const API = 'https://api.e-control.at/sprit/1.0/search/gas-stations/by-region?regionType=BL&regionCode=99&fuelType=DIE&includeClosed=false';
             const PROXIES = [
-                u => u,
                 u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
                 u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
                 u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
@@ -91,16 +91,14 @@ function estimateTravelFee(km, fuelPrice) {
     const fp = (typeof fuelPrice === 'number' && !isNaN(fuelPrice) && fuelPrice > 0) ? fuelPrice : FUEL_FALLBACK;
     if (!km || km <= FREE_KM) return 0;
     const cost = km * 2 * (FUEL_L_PER_100KM / 100) * fp * OVERHEAD_FACTOR;
-    return Math.round(cost * 2) / 2; // auf 0.50€ runden
+    return Math.round(cost * 2) / 2;
 }
 
-// Formatiert einen Preis sicher — niemals NaN anzeigen
 function safePrice(val, decimals = 3) {
     const n = Number(val);
     return isNaN(n) ? FUEL_FALLBACK.toFixed(decimals) : n.toFixed(decimals);
 }
 
-// Einfache Haversine-Distanz-Schätzung (Luftlinie × 1.3 ≈ Straße)
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -109,14 +107,22 @@ function haversineKm(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3;
 }
 
-// Geocoding via Nominatim (kostenlos, kein API-Key nötig)
+// FIX: Nominatim (CORS-blockiert) ersetzt durch Photon API (photon.komoot.io)
+// Photon ist kostenlos, kein API-Key nötig, und erlaubt Browser-CORS-Requests
 async function geocodeAddress(address) {
     try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address + ', Österreich')}&format=json&limit=1`;
-        const res = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(address + ' Österreich')}&limit=1&lang=de`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return null;
         const data = await res.json();
-        if (data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
-        return null;
+        const feature = data.features?.[0];
+        if (!feature) return null;
+        const [lon, lat] = feature.geometry.coordinates;
+        const p = feature.properties;
+        const display = [p.name, p.street, p.city || p.town || p.village, p.country]
+            .filter(Boolean)
+            .join(', ');
+        return { lat, lon, display };
     } catch { return null; }
 }
 
@@ -135,7 +141,7 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const [validationError, setValidationError] = useState(false);
 
     // Booking state
-    const [serviceMode,   setServiceMode]   = useState(null);   // 'home' | 'here'
+    const [serviceMode,   setServiceMode]   = useState(null);
     const [customerAddr,  setCustomerAddr]  = useState('');
     const [addrPrefilled, setAddrPrefilled] = useState(false);
     const [addrGeo,       setAddrGeo]       = useState(null);
@@ -212,14 +218,14 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const TIME_SLOTS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
 
     const daysInMonth   = getDaysInMonth(calYear, calMonth);
-    const firstDay      = (getFirstDayOfMonth(calYear, calMonth) + 6) % 7; // Mo=0
+    const firstDay      = (getFirstDayOfMonth(calYear, calMonth) + 6) % 7;
     const prevMonth = () => { if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); } else setCalMonth(m => m - 1); };
     const nextMonth = () => { if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); } else setCalMonth(m => m + 1); };
 
     const isDisabled = (day) => {
         const d = new Date(calYear, calMonth, day);
         const now = new Date(); now.setHours(0,0,0,0);
-        return d < now || d.getDay() === 0; // Vergangenheit + Sonntag gesperrt
+        return d < now || d.getDay() === 0;
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
@@ -349,7 +355,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                         <span className={`ml-2 text-[8px] font-bold normal-case ${darkMode ? 'text-white/25' : 'text-black/30'}`}>
                                             ~{travelKm} km · Hin+Rück
                                         </span>
-                                            {/* Live-Preis Indikator */}
                                         <span className={`ml-2 text-[8px] font-bold normal-case inline-flex items-center gap-1 ${fuelSource === 'live' ? 'text-green-500' : fuelSource === 'cache' ? 'text-yellow-500' : darkMode ? 'text-white/25' : 'text-black/25'}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full inline-block ${fuelSource === 'live' ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)] animate-pulse' : fuelSource === 'cache' ? 'bg-yellow-400' : 'bg-gray-400'}`} />
                                             {safePrice(fuelPrice, 3)}€/L Diesel
@@ -647,13 +652,6 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                             </form>
                         </div>
                     </motion.div>
-                </div>
-
-                {/* Footer row */}
-                <div className={`mt-16 flex flex-wrap justify-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
-                    <span className="hover:text-blue-500 transition-colors cursor-default">© RS PFLEGE - {t.rights}</span>
-                    <a href="#" className="hover:text-blue-500 transition-colors">{t.imprint}</a>
-                    <a href="#" className="hover:text-blue-500 transition-colors">{t.privacy}</a>
                 </div>
             </div>
         </section>

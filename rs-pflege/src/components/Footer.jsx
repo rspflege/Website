@@ -29,11 +29,8 @@ export default function Footer({ darkMode, lang }) {
     const isShop = typeof window !== 'undefined' && window.location.pathname.includes('shop');
 
     const navLinks = [
-        { label: lang === 'de' ? 'Services' : 'Services', href: '#about' },
-        { label: lang === 'de' ? 'Galerie' : 'Gallery', href: '#gallery' },
-        { label: lang === 'de' ? 'Kontakt' : 'Contact', href: '#kontakt' },
-        { label: lang === 'de' ? 'Impressum' : 'Imprint', href: '/impressum' },
-        { label: lang === 'de' ? 'Datenschutz' : 'Privacy', href: '/datenschutz' },
+        { label: lang === 'de' ? 'Impressum' : 'Imprint', href: '/impressum', internal: true },
+        { label: lang === 'de' ? 'Datenschutz' : 'Privacy Policy', href: '/datenschutz', internal: true },
     ];
 
     return (
@@ -105,13 +102,23 @@ export default function Footer({ darkMode, lang }) {
                 {/* Nav links */}
                 <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 mb-10">
                     {navLinks.map((link) => (
-                        <a
-                            key={link.label}
-                            href={link.href}
-                            className={`text-[13px] font-medium transition-colors duration-150 ${darkMode ? 'text-white/25 hover:text-white/60' : 'text-black/30 hover:text-black/60'}`}
-                        >
-                            {link.label}
-                        </a>
+                        link.internal ? (
+                            <button
+                                key={link.label}
+                                onClick={() => navigate(link.href)}
+                                className={`text-[13px] font-medium transition-colors duration-150 ${darkMode ? 'text-white/25 hover:text-white/60' : 'text-black/30 hover:text-black/60'}`}
+                            >
+                                {link.label}
+                            </button>
+                        ) : (
+                            <a
+                                key={link.label}
+                                href={link.href}
+                                className={`text-[13px] font-medium transition-colors duration-150 ${darkMode ? 'text-white/25 hover:text-white/60' : 'text-black/30 hover:text-black/60'}`}
+                            >
+                                {link.label}
+                            </a>
+                        )
                     ))}
                 </div>
 

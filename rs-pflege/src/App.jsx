@@ -7,6 +7,8 @@ import Preise from './components/Prices';
 import LoginModal from './components/LoginModal';
 import Shop from './Shop';
 import AdminPanel from './AdminPanel';
+import Impressum from './components/Impressum';
+import Datenschutz from './components/Datenschutz';
 import { translations } from './translations';
 import { supabase } from './supabaseClient';
 
@@ -39,6 +41,7 @@ export default function App() {
   const location = useLocation();
   const isShop = location.pathname === '/shop';
   const isAdminPage = location.pathname === '/admin';
+  const isLegalPage = location.pathname === '/impressum' || location.pathname === '/datenschutz';
 
   const adminEmails = [
     'spahiu.endrit09@hotmail.com',
@@ -74,8 +77,8 @@ export default function App() {
 
       <ScrollToTop />
 
-      {/* Die Haupt-Navbar zeigt NUR den Service-Cart an */}
-      {!isShop && !isAdminPage && (
+      {/* Navbar auf Legal-Seiten ausblenden */}
+      {!isShop && !isAdminPage && !isLegalPage && (
         <Navbar
           darkMode={darkMode}
           setDarkMode={setDarkMode}
@@ -83,7 +86,7 @@ export default function App() {
           setLang={setLang}
           setIsLoginOpen={setIsLoginOpen}
           user={user}
-          cartCount={cart.length} // Zeigt nur Service-Items
+          cartCount={cart.length}
           t={t}
         />
       )}
@@ -110,12 +113,24 @@ export default function App() {
                 setDarkMode={setDarkMode}
                 lang={lang}
                 setLang={setLang}
-                cart={shopCart}    /* Übergibt den Shop-Warenkorb */
-                setCart={setShopCart} /* Nutzt den Shop-Setter */
+                cart={shopCart}
+                setCart={setShopCart}
                 user={user}
                 setIsLoginOpen={setIsLoginOpen}
                 t={t}
               />
+            </motion.div>
+          } />
+
+          <Route path="/impressum" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+              <Impressum darkMode={darkMode} lang={lang} />
+            </motion.div>
+          } />
+
+          <Route path="/datenschutz" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+              <Datenschutz darkMode={darkMode} lang={lang} />
             </motion.div>
           } />
 
