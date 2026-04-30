@@ -3,10 +3,6 @@ import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 
-import imgSuv         from '../assets/bmw-suv.jpg';
-import imgSedan       from '../assets/bmw-heck.jpg';
-import imgDash        from '../assets/bmw-innen.jpg';
-import imgConvertible from '../assets/bmw-cabrio.jpg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPABASE SETUP (einmalig in Supabase Dashboard):
@@ -190,15 +186,7 @@ export default function Gallery({ darkMode, lang }) {
         { id: 'details',  label: t.galleryCatDet || 'Details' },
     ];
 
-    const baseImages = [
-        { src: imgSuv,         alt: 'SUV Premium',   cat: 'exterior', size: 'md:col-span-2 md:row-span-2' },
-        { src: imgSedan,       alt: 'Heck-Politur',  cat: 'exterior', size: 'md:col-span-1 md:row-span-1' },
-        { src: imgDash,        alt: 'Leder Refresh', cat: 'interior', size: 'md:col-span-1 md:row-span-2' },
-        { src: imgConvertible, alt: 'Cabrio Finish',  cat: 'exterior', size: 'md:col-span-2 md:row-span-1' },
-        { src: imgDash,        alt: 'Cockpit',       cat: 'interior', size: 'md:col-span-1 md:row-span-1' },
-    ];
-
-    const allImages      = [...baseImages, ...cloudImages];
+    const allImages      = cloudImages;
     const filteredImages = activeTab === 'all' ? allImages : allImages.filter(i => i.cat === activeTab);
 
     // ── Lightbox ──────────────────────────────────────────────────────────────
