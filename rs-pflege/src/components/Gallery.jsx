@@ -134,6 +134,7 @@ export default function Gallery({ darkMode, lang }) {
     const [pendingFiles,  setPendingFiles]  = useState(null);
     const [cloudImages,   setCloudImages]   = useState([]);   // aus Supabase Storage
     const [loadingImages, setLoadingImages] = useState(true);
+    const [deleteConfirm, setDeleteConfirm] = useState(null); // img to confirm-delete
 
     // Supabase Auth
     useEffect(() => {
@@ -249,21 +250,31 @@ export default function Gallery({ darkMode, lang }) {
         setPendingFiles(null);
         setUploading(true);
         let success = 0;
+        let lastError = null;
 
         for (const a of assignments) {
             try {
-                const ext      = a.file.name.split('.').pop();
-                const safeName = encodeURIComponent(a.label.trim() || a.file.name);
+                const ext = a.file.name.split('.').pop().toLowerCase();
+                // Sonderzeichen entfernen, Leerzeichen durch Unterstriche ersetzen
+                const safeName = (a.label.trim() || a.file.name.replace(/\.[^.]+$/, ''))
+                    .replace(/[^a-zA-Z0-9äöüÄÖÜß\-_ ]/g, '')
+                    .replace(/\s+/g, '_')
+                    .substring(0, 80);
                 // Format: "cat__label__timestamp.ext"
                 const fileName = `${a.cat}__${safeName}__${Date.now()}.${ext}`;
 
                 const { error } = await supabase.storage
                     .from(BUCKET)
-                    .upload(fileName, a.file, { contentType: a.file.type, upsert: false });
+                    .upload(fileName, a.file, { contentType: a.file.type, upsert: true });
 
-                if (!error) success++;
-                else console.error('Upload error:', error);
+                if (!error) {
+                    success++;
+                } else {
+                    lastError = error;
+                    console.error('Upload error:', error.message, error);
+                }
             } catch (err) {
+                lastError = err;
                 console.error('Upload failed:', err);
             }
         }
@@ -279,18 +290,31 @@ export default function Gallery({ darkMode, lang }) {
             const uniqueCats = [...new Set(assignments.map(a => a.cat))];
             setActiveTab(uniqueCats.length === 1 ? uniqueCats[0] : 'all');
         } else {
-            setUploadToast('Upload fehlgeschlagen ✕');
-            setTimeout(() => setUploadToast(''), 3500);
+            const msg = lastError?.message || 'Unbekannter Fehler';
+            setUploadToast(`Upload fehlgeschlagen: ${msg} ✕`);
+            setTimeout(() => setUploadToast(''), 5000);
         }
     };
 
     // ── Bild löschen ──────────────────────────────────────────────────────────
-    const deleteImage = async (img) => {
+    const deleteImage = (img) => {
         if (!img.fileName) return;
+        // Erst Bestätigung anfordern, Lightbox bleibt offen
+        setDeleteConfirm(img);
+    };
+
+    const confirmDelete = async () => {
+        const img = deleteConfirm;
+        setDeleteConfirm(null);
         closeLightbox();
         const { error } = await supabase.storage.from(BUCKET).remove([img.fileName]);
         if (!error) {
             setCloudImages(prev => prev.filter(i => i.fileName !== img.fileName));
+            setUploadToast(lang === 'de' ? 'Bild gelöscht ✓' : 'Image deleted ✓');
+            setTimeout(() => setUploadToast(''), 2500);
+        } else {
+            setUploadToast(`Löschen fehlgeschlagen: ${error.message} ✕`);
+            setTimeout(() => setUploadToast(''), 4000);
         }
     };
 
@@ -582,6 +606,52 @@ export default function Gallery({ darkMode, lang }) {
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* ══════════════ LÖSCHEN BESTÄTIGEN ══════════════ */}
+            <AnimatePresence>
+                {deleteConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[3200] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4"
+                        onClick={() => setDeleteConfirm(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 16 }}
+                            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                            onClick={e => e.stopPropagation()}
+                            className={`w-full max-w-sm rounded-[2rem] p-7 border shadow-2xl ${
+                                darkMode ? 'bg-[#0a0a0a] border-white/10 text-white' : 'bg-white border-black/8 text-black'
+                            }`}
+                        >
+                            <div className="w-14 h-14 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center mb-5 mx-auto">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-red-400">
+                                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                            <h3 className={`text-[13px] font-black uppercase tracking-wider text-center mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>
+                                {lang === 'de' ? 'Bild löschen?' : 'Delete image?'}
+                            </h3>
+                            <p className={`text-[10px] text-center mb-6 ${darkMode ? 'text-white/35' : 'text-black/40'}`}>
+                                <span className="font-bold">{deleteConfirm.alt}</span>
+                                <br />
+                                {lang === 'de' ? 'Diese Aktion kann nicht rückgängig gemacht werden.' : 'This action cannot be undone.'}
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setDeleteConfirm(null)}
+                                    className={`flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
+                                        darkMode ? 'border-white/12 text-white/40 hover:border-white/25' : 'border-black/10 text-black/40 hover:border-black/20'
+                                    }`}>
+                                    {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                                </button>
+                                <button onClick={confirmDelete}
+                                    className="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg shadow-red-600/25">
+                                    {lang === 'de' ? 'Löschen' : 'Delete'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         </section>
     );
 }
