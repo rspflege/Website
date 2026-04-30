@@ -8,12 +8,24 @@ import imgSedan       from '../assets/bmw-heck.jpg';
 import imgDash        from '../assets/bmw-innen.jpg';
 import imgConvertible from '../assets/bmw-cabrio.jpg';
 
-const GALLERY_KEY = 'gallery_extra_images';
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPABASE SETUP (einmalig in Supabase Dashboard):
+//   1. Storage → New bucket → Name: "gallery" → Public: AN
+//   2. Storage → Policies → "gallery" bucket → New policy:
+//      INSERT: authenticated  |  SELECT: public  |  DELETE: authenticated
+// ─────────────────────────────────────────────────────────────────────────────
+const BUCKET = 'gallery';
+const DB_TABLE = 'gallery_images'; // optional — wenn du eine DB-Tabelle nutzt
 
-// ── Kategorie-Picker Modal ────────────────────────────────────────────────────
-function CategoryPicker({ files, darkMode, lang, onConfirm, onCancel }) {
+// ── Upload & Kategorie Modal ──────────────────────────────────────────────────
+function UploadPicker({ files, darkMode, lang, onConfirm, onCancel }) {
     const [assignments, setAssignments] = useState(
-        () => files.map(f => ({ file: f, cat: 'exterior', preview: URL.createObjectURL(f) }))
+        () => files.map(f => ({
+            file: f,
+            cat: 'exterior',
+            label: f.name.replace(/\.[^.]+$/, ''), // Dateiname als Standardname
+            preview: URL.createObjectURL(f),
+        }))
     );
 
     useEffect(() => {
@@ -26,60 +38,80 @@ function CategoryPicker({ files, darkMode, lang, onConfirm, onCancel }) {
         { id: 'details',  label: 'Details' },
     ];
 
-    const setcat = (i, cat) =>
-        setAssignments(prev => prev.map((a, idx) => idx === i ? { ...a, cat } : a));
+    const update = (i, patch) =>
+        setAssignments(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
+
+    const inputBase = `w-full px-4 py-2.5 rounded-xl border outline-none text-[12px] font-medium transition-all ${
+        darkMode
+            ? 'bg-white/[0.06] border-white/10 text-white placeholder:text-white/25 focus:border-blue-500/60'
+            : 'bg-black/[0.04] border-black/8 text-black placeholder:text-black/25 focus:border-blue-400'
+    }`;
 
     return (
         <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[3100] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-4"
+            className="fixed inset-0 z-[3100] bg-black/85 backdrop-blur-2xl flex items-center justify-center p-4"
             onClick={onCancel}
         >
             <motion.div
                 initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
                 transition={{ type: 'spring', stiffness: 340, damping: 28 }}
                 onClick={e => e.stopPropagation()}
-                className={`w-full max-w-md rounded-[2.5rem] p-7 border shadow-2xl ${
+                className={`w-full max-w-lg rounded-[2.5rem] p-7 border shadow-2xl ${
                     darkMode ? 'bg-[#0a0a0a] border-white/10 text-white' : 'bg-white border-black/8 text-black'
                 }`}
             >
-                <h3 className={`text-[11px] font-black uppercase tracking-[0.25em] mb-6 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                    {lang === 'de' ? 'Kategorie zuweisen' : 'Assign category'}
+                <h3 className={`text-[11px] font-black uppercase tracking-[0.25em] mb-1 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {lang === 'de' ? 'Bilder benennen & einordnen' : 'Name & categorize images'}
                 </h3>
+                <p className={`text-[10px] mb-6 ${darkMode ? 'text-white/30' : 'text-black/35'}`}>
+                    {lang === 'de' ? 'z.B. "BMW F30 Exterieur Politur"' : 'e.g. "BMW F30 Exterior Polish"'}
+                </p>
 
-                <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+                <div className="space-y-5 max-h-[52vh] overflow-y-auto pr-1">
                     {assignments.map((a, i) => (
-                        <div key={i} className={`flex items-center gap-4 p-3 rounded-2xl border ${darkMode ? 'border-white/8 bg-white/[0.04]' : 'border-black/6 bg-black/[0.03]'}`}>
-                            <img src={a.preview} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                                <p className={`text-[10px] font-bold truncate mb-2 ${darkMode ? 'text-white/60' : 'text-black/60'}`}>{a.file.name}</p>
-                                <div className="flex gap-1.5 flex-wrap">
-                                    {cats.map(c => (
-                                        <button key={c.id} onClick={() => setcat(i, c.id)}
-                                            className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-                                                a.cat === c.id
-                                                    ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]'
-                                                    : darkMode ? 'bg-white/8 text-white/40 hover:bg-white/15' : 'bg-black/6 text-black/40 hover:bg-black/12'
-                                            }`}>
-                                            {c.label}
-                                        </button>
-                                    ))}
+                        <div key={i} className={`p-4 rounded-2xl border space-y-3 ${darkMode ? 'border-white/8 bg-white/[0.03]' : 'border-black/6 bg-black/[0.02]'}`}>
+                            <div className="flex items-center gap-3">
+                                <img src={a.preview} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-[9px] font-bold truncate mb-1.5 ${darkMode ? 'text-white/30' : 'text-black/30'}`}>{a.file.name}</p>
+                                    {/* Bildname */}
+                                    <input
+                                        type="text"
+                                        value={a.label}
+                                        onChange={e => update(i, { label: e.target.value })}
+                                        placeholder={lang === 'de' ? 'z.B. BMW F30 Vollpolitur' : 'e.g. BMW F30 Full Polish'}
+                                        className={inputBase}
+                                    />
                                 </div>
+                            </div>
+                            {/* Kategorie */}
+                            <div className="flex gap-2 flex-wrap">
+                                {cats.map(c => (
+                                    <button key={c.id} type="button" onClick={() => update(i, { cat: c.id })}
+                                        className={`px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                                            a.cat === c.id
+                                                ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.35)]'
+                                                : darkMode ? 'bg-white/8 text-white/40 hover:bg-white/15' : 'bg-black/6 text-black/40 hover:bg-black/10'
+                                        }`}>
+                                        {c.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <div className="flex gap-3 mt-7">
-                    <button onClick={onCancel}
+                <div className="flex gap-3 mt-6">
+                    <button type="button" onClick={onCancel}
                         className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
                             darkMode ? 'border-white/12 text-white/40 hover:border-white/25' : 'border-black/10 text-black/40 hover:border-black/20'
                         }`}>
                         {lang === 'de' ? 'Abbrechen' : 'Cancel'}
                     </button>
-                    <button onClick={() => onConfirm(assignments)}
+                    <button type="button" onClick={() => onConfirm(assignments)}
                         className="flex-1 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg shadow-blue-600/25">
-                        {lang === 'de' ? 'Hinzufügen' : 'Add'}
+                        {lang === 'de' ? 'Hochladen' : 'Upload'}
                     </button>
                 </div>
             </motion.div>
@@ -96,19 +128,59 @@ export default function Gallery({ darkMode, lang }) {
     const [currentIndex, setCurrentIndex] = useState(null);
     const [direction,    setDirection]    = useState(0);
 
-    const [isAdmin,      setIsAdmin]      = useState(false);
-    const [uploadToast,  setUploadToast]  = useState('');
-    const [pendingFiles, setPendingFiles] = useState(null);
-    const [extraImages,  setExtraImages]  = useState(() => {
-        try { return JSON.parse(localStorage.getItem(GALLERY_KEY) || '[]'); }
-        catch { return []; }
-    });
+    const [isAdmin,       setIsAdmin]       = useState(false);
+    const [uploadToast,   setUploadToast]   = useState('');
+    const [uploading,     setUploading]     = useState(false);
+    const [pendingFiles,  setPendingFiles]  = useState(null);
+    const [cloudImages,   setCloudImages]   = useState([]);   // aus Supabase Storage
+    const [loadingImages, setLoadingImages] = useState(true);
 
+    // Supabase Auth
     useEffect(() => {
         supabase.auth.getSession().then(({ data }) => setIsAdmin(!!data.session));
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setIsAdmin(!!session));
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setIsAdmin(!!s));
         return () => subscription.unsubscribe();
     }, []);
+
+    // ── Bilder aus Supabase Storage laden ────────────────────────────────────
+    const loadCloudImages = useCallback(async () => {
+        setLoadingImages(true);
+        try {
+            const { data, error } = await supabase.storage.from(BUCKET).list('', {
+                limit: 200,
+                sortBy: { column: 'created_at', order: 'desc' },
+            });
+            if (error) throw error;
+
+            const imgs = (data || [])
+                .filter(f => f.name !== '.emptyFolderPlaceholder')
+                .map(f => {
+                    // Dateiname-Format: "cat__label__timestamp.ext"
+                    // z.B. "exterior__BMW F30 Politur__1714500000000.jpg"
+                    const parts = f.name.split('__');
+                    const cat   = parts[0] || 'exterior';
+                    const label = parts[1]
+                        ? decodeURIComponent(parts[1])
+                        : f.name.replace(/\.[^.]+$/, '');
+                    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(f.name);
+                    return {
+                        src:    urlData.publicUrl,
+                        alt:    label,
+                        cat,
+                        size:   'md:col-span-1 md:row-span-1',
+                        custom: true,
+                        fileName: f.name,
+                    };
+                });
+            setCloudImages(imgs);
+        } catch (err) {
+            console.error('Gallery load error:', err);
+        } finally {
+            setLoadingImages(false);
+        }
+    }, []);
+
+    useEffect(() => { loadCloudImages(); }, [loadCloudImages]);
 
     const categories = [
         { id: 'all',      label: t.galleryCatAll || 'Alle' },
@@ -125,7 +197,7 @@ export default function Gallery({ darkMode, lang }) {
         { src: imgDash,        alt: 'Cockpit',       cat: 'interior', size: 'md:col-span-1 md:row-span-1' },
     ];
 
-    const allImages      = [...baseImages, ...extraImages];
+    const allImages      = [...baseImages, ...cloudImages];
     const filteredImages = activeTab === 'all' ? allImages : allImages.filter(i => i.cat === activeTab);
 
     // ── Lightbox ──────────────────────────────────────────────────────────────
@@ -165,61 +237,61 @@ export default function Gallery({ darkMode, lang }) {
         exit:  (d) => ({ x: d < 0 ? '100%' : '-100%', opacity: 0 }),
     };
 
-    // ── Upload ────────────────────────────────────────────────────────────────
+    // ── Upload zu Supabase Storage ────────────────────────────────────────────
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
         if (!files.length) return;
-        setPendingFiles(files); // Öffnet CategoryPicker
+        setPendingFiles(files);
         e.target.value = '';
     };
 
-    const handleCategoryConfirm = (assignments) => {
-        // Sofort mit ObjectURLs anzeigen (schnell)
-        const quickImgs = assignments.map(a => ({
-            src: a.preview,
-            alt: a.file.name.replace(/\.[^.]+$/, ''),
-            cat: a.cat,
-            size: 'md:col-span-1 md:row-span-1',
-            custom: true,
-        }));
-        setExtraImages(prev => [...prev, ...quickImgs]);
+    const handleUploadConfirm = async (assignments) => {
         setPendingFiles(null);
+        setUploading(true);
+        let success = 0;
 
-        // Dann asynchron als base64 in localStorage speichern
-        let done = 0;
-        const b64imgs = new Array(assignments.length);
-        assignments.forEach((a, i) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                b64imgs[i] = { ...quickImgs[i], src: ev.target.result };
-                if (++done === assignments.length) {
-                    // Ersetze die ObjectURL-Versionen durch base64-Versionen
-                    setExtraImages(prev => {
-                        const withoutQuick = prev.filter(img => !quickImgs.includes(img));
-                        const updated = [...withoutQuick, ...b64imgs];
-                        try { localStorage.setItem(GALLERY_KEY, JSON.stringify(updated)); } catch {}
-                        return updated;
-                    });
-                }
-            };
-            reader.readAsDataURL(a.file);
-        });
+        for (const a of assignments) {
+            try {
+                const ext      = a.file.name.split('.').pop();
+                const safeName = encodeURIComponent(a.label.trim() || a.file.name);
+                // Format: "cat__label__timestamp.ext"
+                const fileName = `${a.cat}__${safeName}__${Date.now()}.${ext}`;
 
-        setUploadToast(`${assignments.length} Bild${assignments.length > 1 ? 'er' : ''} hinzugefügt ✓`);
-        setTimeout(() => setUploadToast(''), 3000);
+                const { error } = await supabase.storage
+                    .from(BUCKET)
+                    .upload(fileName, a.file, { contentType: a.file.type, upsert: false });
 
-        // Tab zur richtigen Kategorie wechseln
-        const uniqueCats = [...new Set(assignments.map(a => a.cat))];
-        setActiveTab(uniqueCats.length === 1 ? uniqueCats[0] : 'all');
+                if (!error) success++;
+                else console.error('Upload error:', error);
+            } catch (err) {
+                console.error('Upload failed:', err);
+            }
+        }
+
+        setUploading(false);
+
+        if (success > 0) {
+            setUploadToast(`${success} Bild${success > 1 ? 'er' : ''} hochgeladen ✓`);
+            setTimeout(() => setUploadToast(''), 3500);
+            await loadCloudImages(); // Neu laden aus Supabase
+
+            // Tab zur passenden Kategorie
+            const uniqueCats = [...new Set(assignments.map(a => a.cat))];
+            setActiveTab(uniqueCats.length === 1 ? uniqueCats[0] : 'all');
+        } else {
+            setUploadToast('Upload fehlgeschlagen ✕');
+            setTimeout(() => setUploadToast(''), 3500);
+        }
     };
 
-    const deleteImage = (img) => {
-        setExtraImages(prev => {
-            const updated = prev.filter(i => i !== img);
-            try { localStorage.setItem(GALLERY_KEY, JSON.stringify(updated)); } catch {}
-            return updated;
-        });
+    // ── Bild löschen ──────────────────────────────────────────────────────────
+    const deleteImage = async (img) => {
+        if (!img.fileName) return;
         closeLightbox();
+        const { error } = await supabase.storage.from(BUCKET).remove([img.fileName]);
+        if (!error) {
+            setCloudImages(prev => prev.filter(i => i.fileName !== img.fileName));
+        }
     };
 
     const cardGlass = darkMode
@@ -278,7 +350,8 @@ export default function Gallery({ darkMode, lang }) {
                             }`}
                         >
                             {activeTab === cat.id && (
-                                <motion.div layoutId="galleryTab" className="absolute inset-0 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20"
+                                <motion.div layoutId="galleryTab"
+                                    className="absolute inset-0 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20"
                                     transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }} />
                             )}
                             <span className="relative z-10">{cat.label}</span>
@@ -292,12 +365,12 @@ export default function Gallery({ darkMode, lang }) {
                 <AnimatePresence mode="popLayout">
                     {filteredImages.map((image, index) => (
                         <motion.div
-                            key={image.src + image.cat + index}
+                            key={(image.fileName || image.alt) + index}
                             layout
                             initial={{ opacity: 0, scale: 0.92, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.92, y: -10 }}
-                            transition={{ duration: 0.45, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.4), ease: [0.16, 1, 0.3, 1] }}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => openLightbox(index)}
@@ -314,7 +387,6 @@ export default function Gallery({ darkMode, lang }) {
                                 <p className="text-white text-[10px] font-black uppercase tracking-widest">{image.alt}</p>
                                 <p className="text-white/50 text-[8px] font-bold uppercase mt-0.5">{lang === 'de' ? 'Klicken zum Vergrößern' : 'Click to enlarge'}</p>
                             </div>
-                            {/* Kategorie-Badge für eigene Uploads */}
                             {image.custom && (
                                 <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-blue-600/80 backdrop-blur-sm text-white text-[8px] font-black uppercase tracking-widest">
                                     {categories.find(c => c.id === image.cat)?.label || image.cat}
@@ -325,7 +397,13 @@ export default function Gallery({ darkMode, lang }) {
                     ))}
                 </AnimatePresence>
 
-                {/* Admin: + Button */}
+                {/* Lade-Skeleton */}
+                {loadingImages && Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`skel-${i}`}
+                        className={`rounded-[2rem] md:rounded-[3rem] animate-pulse ${darkMode ? 'bg-white/[0.04]' : 'bg-black/[0.04]'}`} />
+                ))}
+
+                {/* Admin: Upload-Button */}
                 {isAdmin && (
                     <motion.button
                         layout
@@ -334,19 +412,28 @@ export default function Gallery({ darkMode, lang }) {
                         whileHover={{ scale: 1.04 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
                         className={`rounded-[2rem] md:rounded-[3rem] border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
-                            darkMode
-                                ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/12 hover:border-blue-400/70'
-                                : 'border-blue-400/40 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-400'
+                            uploading
+                                ? 'opacity-60 cursor-wait border-blue-500/20'
+                                : darkMode
+                                    ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/12 hover:border-blue-400/70'
+                                    : 'border-blue-400/40 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-400'
                         }`}
                     >
-                        <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.45)]">
-                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                        </div>
+                        {uploading ? (
+                            <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.45)]">
+                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
+                        )}
                         <span className={`text-[9px] font-black uppercase tracking-widest ${darkMode ? 'text-white/40' : 'text-black/35'}`}>
-                            {lang === 'de' ? 'Bild hinzufügen' : 'Add image'}
+                            {uploading
+                                ? (lang === 'de' ? 'Lädt hoch...' : 'Uploading...')
+                                : (lang === 'de' ? 'Bild hinzufügen' : 'Add image')}
                         </span>
                     </motion.button>
                 )}
@@ -355,27 +442,29 @@ export default function Gallery({ darkMode, lang }) {
             {/* Hidden file input */}
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
 
-            {/* Kategorie-Picker Modal */}
+            {/* Upload-Picker Modal */}
             <AnimatePresence>
                 {pendingFiles && (
-                    <CategoryPicker
+                    <UploadPicker
                         files={pendingFiles}
                         darkMode={darkMode}
                         lang={lang}
-                        onConfirm={handleCategoryConfirm}
+                        onConfirm={handleUploadConfirm}
                         onCancel={() => setPendingFiles(null)}
                     />
                 )}
             </AnimatePresence>
 
-            {/* Upload Toast */}
+            {/* Toast */}
             <AnimatePresence>
                 {uploadToast && (
                     <motion.div
                         initial={{ opacity: 0, y: 20, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[3000] px-5 py-3 rounded-full bg-green-500 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-green-500/25 flex items-center gap-2 whitespace-nowrap pointer-events-none"
+                        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[3000] px-5 py-3 rounded-full text-white text-xs font-black uppercase tracking-widest shadow-xl flex items-center gap-2 whitespace-nowrap pointer-events-none ${
+                            uploadToast.includes('✕') ? 'bg-red-500 shadow-red-500/25' : 'bg-green-500 shadow-green-500/25'
+                        }`}
                     >
                         <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                         {uploadToast}
@@ -392,7 +481,7 @@ export default function Gallery({ darkMode, lang }) {
                         className="fixed inset-0 z-[2100] bg-black/96 backdrop-blur-3xl flex items-center justify-center"
                         onClick={closeLightbox}
                     >
-                        {/* Dots — oben mittig */}
+                        {/* Dots */}
                         <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[2110] flex gap-1.5 max-w-[60vw] overflow-hidden">
                             {filteredImages.map((_, i) => (
                                 <button key={i} onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
@@ -403,7 +492,7 @@ export default function Gallery({ darkMode, lang }) {
                             ))}
                         </div>
 
-                        {/* Admin: Löschen-Button — oben links */}
+                        {/* Admin: Löschen */}
                         {isAdmin && filteredImages[currentIndex]?.custom && (
                             <motion.button
                                 initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -423,20 +512,19 @@ export default function Gallery({ darkMode, lang }) {
                             key={currentIndex + '-t'}
                             initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.12 }}
-                            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[2110] text-white/45 text-[10px] font-black uppercase tracking-[0.3em] pointer-events-none whitespace-nowrap"
+                            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[2110] text-white/50 text-[11px] font-black uppercase tracking-[0.3em] pointer-events-none whitespace-nowrap"
                         >
                             {filteredImages[currentIndex]?.alt}
                         </motion.p>
 
-                        {/* ── Schließen — unten mittig als Pill-Button, weit weg vom Hamburger ── */}
+                        {/* Schließen-Button — unten mittig */}
                         <motion.button
                             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
                             transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 26 }}
                             onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
                             className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[2200] flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-red-500/60 border border-white/15 text-white text-[10px] font-black uppercase tracking-widest transition-all duration-150 active:scale-95 touch-manipulation backdrop-blur-xl"
-                            aria-label="Schließen"
                         >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 flex-shrink-0">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
                                 <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
                             </svg>
                             {lang === 'de' ? 'Schließen' : 'Close'}
@@ -456,7 +544,7 @@ export default function Gallery({ darkMode, lang }) {
                             ))}
                         </div>
 
-                        {/* Bild — stopPropagation damit Klick aufs Bild nicht schließt */}
+                        {/* Bild */}
                         <div className="relative w-full h-[80vh] flex items-center justify-center" onClick={e => e.stopPropagation()}>
                             <AnimatePresence initial={false} custom={direction}>
                                 <motion.div
@@ -485,11 +573,9 @@ export default function Gallery({ darkMode, lang }) {
                             </AnimatePresence>
                         </div>
 
-                        {/* Hinweis: außerhalb klicken */}
                         <p className="absolute top-5 right-5 hidden md:block text-white/15 text-[9px] font-black uppercase tracking-[0.25em] pointer-events-none">
                             {lang === 'de' ? 'Außerhalb klicken zum Schließen' : 'Click outside to close'}
                         </p>
-
                         <p className="absolute bottom-2 left-1/2 -translate-x-1/2 md:hidden text-white/15 text-[7px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
                             {t.gallerySwipeTip || 'Swipe ← →'}
                         </p>
