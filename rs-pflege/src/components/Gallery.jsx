@@ -483,10 +483,10 @@ export default function Gallery({ darkMode, lang }) {
             <AnimatePresence>
                 {uploadToast && (
                     <motion.div
-                        initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                        initial={{ opacity: 0, y: 16, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                        className={`fixed top-5 left-4 right-4 mx-auto max-w-sm z-[3000] px-5 py-3.5 rounded-2xl text-white text-[11px] font-black uppercase tracking-widest shadow-xl flex items-start gap-3 pointer-events-none ${
+                        exit={{ opacity: 0, y: 16, scale: 0.9 }}
+                        className={`fixed bottom-[88px] left-4 right-4 mx-auto max-w-sm z-[3000] px-5 py-3.5 rounded-2xl text-white text-[11px] font-black uppercase tracking-widest shadow-xl flex items-start gap-3 pointer-events-none ${
                             uploadToast.includes('✕') ? 'bg-red-500 shadow-red-500/30' : 'bg-green-500 shadow-green-500/30'
                         }`}
                     >
