@@ -27,7 +27,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
         }
     };
 
-    const [withWax, setWithWax] = useState(false);
+    const [withWax, setWithWax] = useState(true);
     const [carType, setCarType] = useState('sedan');
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [errors, setErrors] = useState([]);
@@ -178,70 +178,93 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
 
             {/* Service Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-left relative z-10">
-                <ServiceCard title={t.interior} price={getPrice(t.interior)} onSelect={() => handleSelect(t.interior)} t={t} cardGlass={cardGlass} icon="interior" darkMode={darkMode} lang={lang} />
-                <ServiceCard title={t.exterior} price={getPrice(t.exterior)} onSelect={() => handleSelect(t.exterior)} t={t} cardGlass={cardGlass} icon="exterior" darkMode={darkMode} lang={lang} />
-                <ServiceCard title={t.polishing} price={80} isComingSoon t={t} cardGlass={cardGlass} icon="polish" darkMode={darkMode} lang={lang} />
 
-                {/* Signature Combo */}
+                {/* Signature Combo — FIRST and most prominent */}
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className={`${cardGlass} md:col-span-12 p-10 md:p-14 rounded-[3.5rem] border-2 border-blue-500/20 bg-gradient-to-br from-blue-600/8 via-transparent to-transparent flex flex-col md:flex-row items-center gap-12 relative overflow-hidden group hover:border-blue-500/40 transition-all duration-500 hover:shadow-[0_0_60px_rgba(37,99,235,0.08)]`}
+                    className={`${cardGlass} md:col-span-12 p-10 md:p-14 rounded-[3.5rem] border-2 border-blue-500/40 bg-gradient-to-br from-blue-600/10 via-transparent to-transparent flex flex-col md:flex-row items-center gap-12 relative overflow-hidden group hover:border-blue-500/60 transition-all duration-500 hover:shadow-[0_0_80px_rgba(37,99,235,0.15)] shadow-[0_0_60px_rgba(37,99,246,0.08)]`}
                 >
-                    {/* Glow */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/8 blur-[80px] rounded-full pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none" />
+                    <div className="absolute -top-px left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
 
                     <div className="flex-1 z-10">
-                        <div className="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 inline-flex items-center gap-2">
-                            <span>⭐</span> {t.bestValue}
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            <div className="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-2 shadow-lg shadow-blue-600/30">
+                                <span>⭐</span> {t.bestValue}
+                            </div>
+                            <motion.div
+                                animate={{ scale: [1, 1.06, 1] }}
+                                transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+                                className="bg-orange-500/15 text-orange-400 border border-orange-500/30 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1.5"
+                            >
+                                🔥 {lang === 'de' ? 'Meistgebucht' : 'Most booked'}
+                            </motion.div>
                         </div>
                         <h3 className="text-5xl md:text-7xl font-black italic uppercase mb-6 leading-[0.9]">
                             {t.signatureCombo.split(' ')[0]}<br />
                             <span className="text-blue-500">{t.signatureCombo.split(' ')[1]}</span>
                         </h3>
-                        <div className="flex items-baseline gap-4 mb-4">
+                        <div className="flex items-baseline gap-4 mb-4 flex-wrap">
                             <motion.div key={getPrice(t.signatureCombo)} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-6xl font-black italic text-blue-500">
                                 {getPrice(t.signatureCombo)}€
                             </motion.div>
-                            <div className={`text-sm font-bold line-through ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
-                                {getPrice(t.interior) + getPrice(t.exterior)}€
-                            </div>
-                            <div className="text-xs font-black text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
-                                {lang === 'de' ? 'Gespart' : 'Saved'} {getPrice(t.interior) + getPrice(t.exterior) - getPrice(t.signatureCombo)}€
+                            <div className="flex flex-col gap-1">
+                                <div className={`text-sm font-bold line-through ${darkMode ? 'text-white/25' : 'text-black/25'}`}>
+                                    {lang === 'de' ? 'Einzeln' : 'Separately'}: {getPrice(t.interior) + getPrice(t.exterior)}€
+                                </div>
+                                <div className="text-xs font-black text-green-400 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20 whitespace-nowrap">
+                                    ✓ {lang === 'de' ? 'Du sparst' : 'You save'} {getPrice(t.interior) + getPrice(t.exterior) - getPrice(t.signatureCombo)}€
+                                </div>
                             </div>
                         </div>
-                        {withWax && <span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-3 py-1 rounded-lg inline-block border border-blue-400/20">{lang === 'de' ? 'Inkl. Premium Wax' : 'Incl. Premium Wax'} ✨</span>}
+                        <div className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-wider mb-4 ${darkMode ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            {lang === 'de' ? 'Wenige Termine diese Woche verfügbar' : 'Few slots available this week'}
+                        </div>
+                        {withWax && <div className="mt-1"><span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-3 py-1 rounded-lg inline-block border border-blue-400/20">{lang === 'de' ? 'Inkl. Premium Wax' : 'Incl. Premium Wax'} ✨</span></div>}
                     </div>
 
                     <div className="flex-1 w-full z-10 flex flex-col gap-6">
                         <p className={`${subTextColor} text-[11px] font-bold uppercase tracking-widest leading-loose`}>{t.comboDesc}</p>
-
-                        {/* Included features */}
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                             {[
                                 lang === 'de' ? 'Komplette Innenreinigung' : 'Complete interior cleaning',
                                 lang === 'de' ? 'Komplette Außenwäsche' : 'Complete exterior wash',
                                 lang === 'de' ? 'Felgen & Reifen gereinigt' : 'Wheels & tyres cleaned',
                                 lang === 'de' ? 'Scheiben kristallklar' : 'Windows crystal clear',
+                                lang === 'de' ? 'Premium Wax Versiegelung ✨' : 'Premium Wax coating ✨',
                             ].map((feat, i) => (
                                 <div key={i} className="flex items-center gap-3">
                                     <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                     </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-white/50' : 'text-black/50'}`}>{feat}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-white/60' : 'text-black/60'}`}>{feat}</span>
                                 </div>
                             ))}
                         </div>
-
                         <button
                             onClick={() => handleSelect(t.signatureCombo)}
-                            className={`w-full py-6 rounded-3xl font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl hover:scale-[1.01] hover:shadow-2xl ${darkMode ? 'bg-white text-black hover:bg-blue-600 hover:text-white' : 'bg-black text-white hover:bg-blue-600'}`}
+                            className="w-full py-6 rounded-3xl font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl hover:scale-[1.02] bg-blue-600 hover:bg-blue-500 text-white hover:shadow-[0_15px_40px_rgba(37,99,235,0.45)] active:scale-95"
                         >
                             {t.kombiBooking} →
                         </button>
                     </div>
                 </motion.div>
+
+                {/* Divider */}
+                <div className="md:col-span-12 flex items-center gap-4 mt-2">
+                    <div className={`flex-1 h-px ${darkMode ? 'bg-white/8' : 'bg-black/8'}`} />
+                    <span className={`text-[9px] font-black uppercase tracking-[0.3em] whitespace-nowrap ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
+                        {lang === 'de' ? 'oder einzeln buchen' : 'or book individually'}
+                    </span>
+                    <div className={`flex-1 h-px ${darkMode ? 'bg-white/8' : 'bg-black/8'}`} />
+                </div>
+
+                <ServiceCard title={t.interior} price={getPrice(t.interior)} onSelect={() => handleSelect(t.interior)} t={t} cardGlass={cardGlass} icon="interior" darkMode={darkMode} lang={lang} />
+                <ServiceCard title={t.exterior} price={getPrice(t.exterior)} onSelect={() => handleSelect(t.exterior)} t={t} cardGlass={cardGlass} icon="exterior" darkMode={darkMode} lang={lang} />
+                <ServiceCard title={t.polishing} price={80} isComingSoon t={t} cardGlass={cardGlass} icon="polish" darkMode={darkMode} lang={lang} />
 
                 {/* RS Shop Coming Soon */}
                 <motion.div
