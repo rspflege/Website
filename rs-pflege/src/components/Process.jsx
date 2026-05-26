@@ -22,12 +22,12 @@ const FALLBACK_DETAILS = [
         { label: 'Hand-Wäsche',         text: 'Jeder Zentimeter wird sorgfältig von Hand gereinigt.' },
     ],
     [
-        { label: 'Politur',             text: 'Maschinengestützte Politur entfernt Swirls & Mikrokratzer.' },
+        { label: 'Innenreinigung',             text: 'Alles wird gereinigt bis ins tiefste Detail.' },
         { label: 'Tiefenglanz',         text: 'Schicht-für-Schicht-Aufbau für maximale Strahlkraft.' },
         { label: 'Lackpflege',          text: 'Natürliche Farbe wird wiederhergestellt & verstärkt.' },
     ],
     [
-        { label: 'Versiegelung',        text: 'Langzeit-Schutz bis zu 12 Monate – hydrophob & UV-fest.' },
+        { label: 'Versiegelung',        text: 'Langzeit-Schutz bis zu 3 Monate – hydrophob & UV-fest.' },
         { label: 'Lotuseffekt',         text: 'Wasser perlt ab, Schmutz haftet kaum noch.' },
         { label: 'UV-Schutz',           text: 'Konserviert Farbe und Glanz langfristig.' },
     ],
