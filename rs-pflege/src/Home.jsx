@@ -149,12 +149,16 @@ function WelcomeIntro({ darkMode, lang, onDone }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function ScrollProgressBar() {
     const { scrollYProgress } = useScroll();
+    
     // No spring — springs add latency on slow devices
     return (
         <motion.div
-            style={{ scaleX: scrollYProgress, transformOrigin: 'left' }}
             className="fixed top-0 left-0 right-0 h-[2px] z-[9998] bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-600"
-            style={{ scaleX: scrollYProgress, transformOrigin: 'left', boxShadow: '0 0 8px rgba(59,130,246,0.6)' }}
+            style={{ 
+                scaleX: scrollYProgress, 
+                transformOrigin: 'left', 
+                boxShadow: '0 0 8px rgba(59, 130, 246, 0.6)' 
+            }}
         />
     );
 }
