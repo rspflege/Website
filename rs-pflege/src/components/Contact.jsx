@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from './useLocation';
+import { supabase } from '../supabaseClient';
 
 // ── Basisstandort (XOR-verschlüsselt — kein Klartext im Bundle) ───────────────
 const _K = 0x4f;
 const _La = [123,120,97,119,119,124,124];
-const _Lo = [126,124,97,121,126,121,120];
+const _Lo = [126,124,97,121,122,127,127];
 const _BASE = (() => {
     const d = a => parseFloat(a.map(b => String.fromCharCode(b ^ _K)).join(''));
     return { lat: d(_La), lon: d(_Lo) };
@@ -14,10 +15,9 @@ const _BASE = (() => {
 
 // ── Fahrtkosten-Kalkulation ───────────────────────────────────────────────────
 const FUEL_L_PER_100KM = 5.8;
-const FUEL_TANK_L      = 57;
 const FUEL_FALLBACK    = 1.45;
 const OVERHEAD_FACTOR  = 1.30;
-const FREE_KM          = 3;
+const FREE_KM          = 8;
 
 const PRICE_CACHE_KEY = 'at_diesel_price_cache';
 const PRICE_CACHE_TTL = 60 * 60 * 1000;
@@ -130,11 +130,60 @@ async function geocodeAddress(address) {
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
 function getFirstDayOfMonth(year, month) { return new Date(year, month, 1).getDay(); }
 
+// ── Arbeitstage aus Supabase laden ─────────────────────────────────────────────
+// Supabase-Tabelle: work_schedule (date TEXT PRIMARY KEY, slots TEXT[] DEFAULT '{}')
+// Jeder Eintrag = ein Tag, an dem gearbeitet wird, mit optionalen Zeitslots
+const SCHEDULE_TABLE = 'work_schedule';
+
+function useWorkSchedule() {
+    const [schedule, setSchedule]       = useState({});
+    const [scheduleLoading, setLoading] = useState(true);
+    const [reloadTick, setReloadTick]   = useState(0);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        supabase.from(SCHEDULE_TABLE).select('date,slots').then(({ data }) => {
+            if (cancelled) return;
+            if (data) {
+                const map = {};
+                data.forEach(r => { map[r.date] = r.slots || []; });
+                setSchedule(map);
+            }
+            setLoading(false);
+        }).catch(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [reloadTick]);
+
+    const refresh = () => setReloadTick(t => t + 1);
+
+    return { schedule, scheduleLoading, refresh };
+}
+
+const ADMIN_EMAILS_CONTACT = [
+    'spahiu.endrit09@hotmail.com',
+    'rspflege.office@gmail.com',
+    'rekicsead6@gmail.com'
+];
+
 export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const t = translations[lang] || translations.de;
     const form = useRef();
     const { coords: userCoords, city: userCity } = useLocation();
-    const { price: fuelPrice, source: fuelSource, loading: fuelLoading } = useAustrianFuelPrice();
+    const { price: fuelPrice, source: fuelSource } = useAustrianFuelPrice();
+
+    // Auth
+    const [currentUser, setCurrentUser] = useState(null);
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => setCurrentUser(session?.user ?? null));
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setCurrentUser(s?.user ?? null));
+        return () => subscription.unsubscribe();
+    }, []);
+    const isAdminUser = currentUser && ADMIN_EMAILS_CONTACT.includes(currentUser.email);
+
+    // Work schedule (admin-verwaltete Arbeitstage)
+    const { schedule, scheduleLoading, refresh: refreshSchedule } = useWorkSchedule();
+    const [showAdminSchedule, setShowAdminSchedule] = useState(false);
 
     // Form state
     const [status,          setStatus]          = useState('idle');
@@ -151,15 +200,25 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
 
     // Nutzerstandort automatisch → Fahrtkosten vorberechnen
     useEffect(() => {
-        if (serviceMode !== 'home' || addrPrefilled || !userCoords) return;
+        if (serviceMode !== 'home' || !userCoords) return;
         const { lat, lon } = userCoords;
         const km = haversineKm(_BASE.lat, _BASE.lon, lat, lon);
         setTravelKm(Math.round(km));
         setTravelFee(estimateTravelFee(km, fuelPrice));
-        setAddrGeo({ lat, lon, display: userCity });
-        if (!customerAddr) setCustomerAddr(userCity);
-        setAddrPrefilled(true);
-    }, [serviceMode, userCoords, addrPrefilled, userCity, fuelPrice]);
+        if (!addrPrefilled) {
+            setAddrGeo({ lat, lon, display: userCity });
+            if (!customerAddr) setCustomerAddr(userCity);
+            setAddrPrefilled(true);
+        }
+    }, [serviceMode, userCoords, userCity, fuelPrice]);
+
+    // Wenn Adresse manuell geocoded wurde, Fahrtkosten bei fuelPrice-Update neu berechnen
+    useEffect(() => {
+        if (!addrGeo || serviceMode !== 'home') return;
+        const km = haversineKm(_BASE.lat, _BASE.lon, addrGeo.lat, addrGeo.lon);
+        setTravelKm(Math.round(km));
+        setTravelFee(estimateTravelFee(km, fuelPrice));
+    }, [fuelPrice]);
 
     // Calendar state
     const today = new Date();
@@ -222,11 +281,38 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     const prevMonth = () => { if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); } else setCalMonth(m => m - 1); };
     const nextMonth = () => { if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); } else setCalMonth(m => m + 1); };
 
+    // Sa/So werden wie normale Tage behandelt — im schedule-Objekt via mergedSchedule
+    const WEEKEND_SLOTS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+    const isWeekend = (year, month, day) => {
+        const dow = new Date(year, month, day).getDay();
+        return dow === 0 || dow === 6;
+    };
+
+    // Merged schedule: Supabase-Daten haben Vorrang; Wochenenden sind immer verfügbar als Fallback
+    const getMergedSlots = (dateStr) => {
+        if (dateStr in schedule) {
+            // Leere slots = explizit deaktiviert (auch für Wochenenden)
+            if (schedule[dateStr].length === 0) return null;
+            return schedule[dateStr];
+        }
+        const [y, m, d] = dateStr.split('-').map(Number);
+        if (isWeekend(y, m - 1, d)) return WEEKEND_SLOTS;
+        return null;
+    };
+
     const isDisabled = (day) => {
         const d = new Date(calYear, calMonth, day);
         const now = new Date(); now.setHours(0,0,0,0);
-        return d < now || d.getDay() === 0;
+        if (d < now) return true;
+        const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        return getMergedSlots(dateStr) === null;
     };
+
+    const getTimeSlotsForDate = (dateStr) => {
+        return getMergedSlots(dateStr) || TIME_SLOTS;
+    };
+
 
     // ── Submit ────────────────────────────────────────────────────────────────
     const sendEmail = async (e) => {
@@ -270,13 +356,30 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
     };
 
     return (
-        <section id="kontakt" className="py-24 px-6 scroll-mt-20 relative overflow-hidden">
+        <section id="kontakt" className="py-24 px-6 scroll-mt-20 relative overflow-x-hidden">
             <div className={`absolute bottom-0 left-1/3 w-96 h-72 rounded-full blur-[140px] pointer-events-none ${darkMode ? 'bg-blue-600/[0.09]' : 'bg-blue-300/[0.15]'}`} />
+            <div className={`absolute top-1/4 right-0 w-72 h-72 rounded-full blur-[120px] pointer-events-none ${darkMode ? 'bg-violet-600/[0.07]' : 'bg-violet-300/[0.10]'}`} />
+            {/* Floating particles */}
+            {[...Array(6)].map((_, i) => (
+                <motion.div
+                    key={i}
+                    className={`absolute w-1 h-1 rounded-full pointer-events-none ${darkMode ? 'bg-blue-400/40' : 'bg-blue-500/30'}`}
+                    style={{ left: `${10 + i * 15}%`, top: `${20 + (i % 3) * 25}%` }}
+                    animate={{ y: [-12, 12, -12], opacity: [0.3, 0.8, 0.3], scale: [1, 1.5, 1] }}
+                    transition={{ duration: 3 + i * 0.7, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }}
+                />
+            ))}
 
             <div className="max-w-6xl mx-auto text-center relative z-10">
 
                 {/* Progress bar */}
-                <div className="mb-16 max-w-4xl mx-auto">
+                <motion.div
+                    className="mb-16 max-w-4xl mx-auto"
+                    initial={{ opacity: 0, y: 16 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6 }}
+                >
                     <div className="flex justify-between mb-3 px-1">
                         <span className={`text-[10px] font-black tracking-widest uppercase ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                             {refinementLevel < 100 ? 'Refinement in Progress' : 'Ultimate Showroom Condition'}
@@ -290,14 +393,14 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                             className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 shadow-[0_0_12px_rgba(37,99,235,0.5)]" />
                     </div>
-                </div>
+                </motion.div>
 
                 <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className={`text-5xl md:text-7xl font-black uppercase tracking-tighter mb-12 ${darkMode ? 'text-white' : 'text-black'}`}
+                    className={`text-5xl md:text-7xl font-black uppercase tracking-tighter mb-12 pb-2 leading-[1.05] ${darkMode ? 'text-white' : 'text-black'}`}
                 >
                     {t.contactTitle} <span className="text-blue-600">{t.contactJourney}</span>
                 </motion.h2>
@@ -522,7 +625,58 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                 <AnimatePresence>
                                     {serviceMode && (
                                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
-                                            <label className={labelStyle}>{lang === 'de' ? 'Wunschtermin' : 'Preferred date'}</label>
+                                            <div className="flex items-center justify-between">
+                                                <label className={labelStyle}>{lang === 'de' ? 'Wunschtermin' : 'Preferred date'}</label>
+                                                {isAdminUser && (
+                                                    <motion.button type="button" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                                                        onClick={() => setShowAdminSchedule(v => !v)}
+                                                        className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                                            showAdminSchedule
+                                                                ? 'bg-violet-600 border-violet-500 text-white'
+                                                                : darkMode ? 'border-violet-500/40 text-violet-400 hover:bg-violet-500/10' : 'border-violet-400 text-violet-600 hover:bg-violet-50'
+                                                        }`}>
+                                                        {lang === 'de' ? '⚙ Arbeitstage verwalten' : '⚙ Manage schedule'}
+                                                    </motion.button>
+                                                )}
+                                            </div>
+
+                                            {/* Admin: Arbeitstage eintragen */}
+                                            <AnimatePresence>
+                                                {isAdminUser && showAdminSchedule && (
+                                                    <AdminScheduleEditor
+                                                        darkMode={darkMode}
+                                                        lang={lang}
+                                                        schedule={schedule}
+                                                        calYear={calYear}
+                                                        calMonth={calMonth}
+                                                        onRefresh={refreshSchedule}
+                                                        TIME_SLOTS={TIME_SLOTS}
+                                                    />
+                                                )}
+                                            </AnimatePresence>
+
+                                            {scheduleLoading && (
+                                                <p className={`text-[8px] font-black uppercase tracking-widest ml-2 animate-pulse ${darkMode ? 'text-white/20' : 'text-black/20'}`}>
+                                                    {lang === 'de' ? 'Termine werden geladen...' : 'Loading schedule...'}
+                                                </p>
+                                            )}
+                                            {false && Object.keys(schedule).length === 0 && (
+                                                <p className={`text-[8px] font-black uppercase tracking-widest ml-2 ${darkMode ? 'text-amber-400/60' : 'text-amber-600/70'}`}>
+                                                    {lang === 'de' ? 'ℹ Noch keine Termine verfügbar — bitte direkt anfragen' : 'ℹ No dates available yet — please inquire directly'}
+                                                </p>
+                                            )}
+
+                                            {/* Sa/So immer verfügbar Badge */}
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -4 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-widest w-fit ${
+                                                    darkMode ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-blue-50 border border-blue-200 text-blue-600'
+                                                }`}
+                                            >
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+                                                {lang === 'de' ? 'Sa & So · 08:00–18:00 · Immer buchbar' : 'Sat & Sun · 08:00–18:00 · Always available'}
+                                            </motion.div>
 
                                             <div className={`rounded-3xl border p-5 backdrop-blur-xl ${darkMode ? 'bg-white/[0.04] border-white/[0.08]' : 'bg-white/60 border-black/[0.08]'}`}>
                                                 {/* Month nav */}
@@ -555,24 +709,29 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                                         const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                                                         const disabled = isDisabled(day);
                                                         const selected = selectedDate === dateStr;
+                                                        const available = !disabled;
                                                         return (
-                                                            <motion.button
+                                                            <button
                                                                 key={day}
                                                                 type="button"
-                                                                whileHover={!disabled ? { scale: 1.12 } : {}}
-                                                                whileTap={!disabled ? { scale: 0.92 } : {}}
                                                                 disabled={disabled}
                                                                 onClick={() => { setSelectedDate(dateStr); setSelectedTime(null); }}
-                                                                className={`aspect-square rounded-xl text-[10px] font-black flex items-center justify-center transition-all duration-200 ${
+                                                                style={{ willChange: 'transform' }}
+                                                                className={`aspect-square rounded-xl text-[10px] font-black flex items-center justify-center relative transition-[background,box-shadow,color] duration-150 ${
+                                                                    available ? 'hover:scale-110 active:scale-95' : ''
+                                                                } ${
                                                                     selected
-                                                                        ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.4)]'
+                                                                        ? 'bg-blue-600 text-white shadow-[0_0_14px_rgba(37,99,235,0.5)]'
                                                                         : disabled
-                                                                            ? (darkMode ? 'text-white/10 cursor-not-allowed' : 'text-black/12 cursor-not-allowed')
-                                                                            : (darkMode ? 'text-white/60 hover:bg-white/10' : 'text-black/60 hover:bg-blue-50')
+                                                                            ? (darkMode ? 'text-white/10 cursor-not-allowed' : 'text-black/10 cursor-not-allowed')
+                                                                            : (darkMode ? 'bg-green-500/15 text-green-400 ring-1 ring-green-500/25 hover:bg-green-500/30' : 'bg-green-50 text-green-700 ring-1 ring-green-200 hover:bg-green-100')
                                                                 }`}
                                                             >
                                                                 {day}
-                                                            </motion.button>
+                                                                {available && !selected && (
+                                                                    <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-green-400" />
+                                                                )}
+                                                            </button>
                                                         );
                                                     })}
                                                 </div>
@@ -586,21 +745,19 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                                                             {lang === 'de' ? 'Uhrzeit wählen' : 'Choose time'}
                                                         </p>
                                                         <div className="flex flex-wrap gap-2">
-                                                            {TIME_SLOTS.map(slot => (
-                                                                <motion.button
+                                                            {getTimeSlotsForDate(selectedDate).map(slot => (
+                                                                <button
                                                                     key={slot}
                                                                     type="button"
-                                                                    whileHover={{ scale: 1.06 }}
-                                                                    whileTap={{ scale: 0.94 }}
                                                                     onClick={() => setSelectedTime(slot)}
-                                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black border-2 transition-all duration-200 ${
+                                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black border-2 transition-[background,border-color,box-shadow,color] duration-150 hover:scale-105 active:scale-95 ${
                                                                         selectedTime === slot
                                                                             ? 'border-blue-500 bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.3)]'
                                                                             : darkMode ? 'border-white/[0.08] bg-white/[0.04] text-white/50 hover:border-blue-500/50' : 'border-black/[0.08] bg-white/60 text-black/50 hover:border-blue-400'
                                                                     }`}
                                                                 >
                                                                     {slot}
-                                                                </motion.button>
+                                                                </button>
                                                             ))}
                                                         </div>
                                                     </motion.div>
@@ -632,8 +789,10 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
 
                                 {/* Submit */}
                                 <motion.button
-                                    whileHover={{ scale: 1.01, y: -1 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 16px 48px rgba(37,99,235,0.45)' }}
+                                    whileTap={{ scale: 0.97 }}
+                                    animate={status === 'sending' ? { opacity: [1, 0.7, 1] } : { opacity: 1 }}
+                                    transition={status === 'sending' ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.15 }}
                                     disabled={status === 'sending' || status === 'success'}
                                     type="submit"
                                     className={`w-full py-6 rounded-3xl font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl transition-colors flex items-center justify-center gap-3 ${
@@ -655,5 +814,268 @@ export default function Contact({ darkMode, lang, cart = [], setCart }) {
                 </div>
             </div>
         </section>
+    );
+}
+
+// ── Admin: Arbeitstage eintragen ───────────────────────────────────────────────
+// Supabase SQL (einmalig ausführen):
+// CREATE TABLE IF NOT EXISTS work_schedule (
+//   date TEXT PRIMARY KEY,
+//   slots TEXT[] DEFAULT '{}'
+// );
+// ALTER TABLE work_schedule ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "Public read" ON work_schedule FOR SELECT USING (true);
+// CREATE POLICY "Auth write" ON work_schedule FOR ALL USING (auth.role() = 'authenticated');
+
+const ALL_SLOTS = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+
+function AdminScheduleEditor({ darkMode, lang, schedule, calYear, calMonth, onRefresh, TIME_SLOTS }) {
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState('');
+    const [editDate, setEditDate] = useState(null);
+    const [editSlots, setEditSlots] = useState([]);
+    const [localYear, setLocalYear] = useState(calYear);
+    const [localMonth, setLocalMonth] = useState(calMonth);
+
+    const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+    const daysInMonth = getDaysInMonth(localYear, localMonth);
+    const firstDay = (getFirstDayOfMonth(localYear, localMonth) + 6) % 7;
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    const prevM = () => { if (localMonth === 0) { setLocalYear(y=>y-1); setLocalMonth(11); } else setLocalMonth(m=>m-1); };
+    const nextM = () => { if (localMonth === 11) { setLocalYear(y=>y+1); setLocalMonth(0); } else setLocalMonth(m=>m+1); };
+
+    const WEEKEND_SLOTS_ADMIN = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+    const isAdminWeekend = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dow = new Date(y, m - 1, d).getDay();
+        return dow === 0 || dow === 6;
+    };
+
+    // Ein Tag gilt als "verfügbar" wenn er in schedule ist ODER ein Wochenende ist
+    const isAvailable = (dateStr) => (dateStr in schedule) || isAdminWeekend(dateStr);
+
+    const openDay = (dateStr) => {
+        setEditDate(dateStr);
+        if (schedule[dateStr]) {
+            setEditSlots([...schedule[dateStr]]);
+        } else if (isAdminWeekend(dateStr)) {
+            setEditSlots([...WEEKEND_SLOTS_ADMIN]);
+        } else {
+            setEditSlots([...TIME_SLOTS]);
+        }
+    };
+
+    const toggleSlot = (slot) => {
+        setEditSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot].sort());
+    };
+
+    const saveDay = async (dateStr, slots) => {
+        setSaving(true);
+        try {
+            if (slots.length === 0) {
+                // Wochenende mit leeren Slots = explizit als "nicht verfügbar" speichern
+                // Wir speichern einen Sentinel-Eintrag mit speziellen Slots oder löschen
+                if (isAdminWeekend(dateStr)) {
+                    // Für Wochenenden: in Supabase als deaktiviert speichern (leere slots = disabled)
+                    const { error } = await supabase.from(SCHEDULE_TABLE).upsert({ date: dateStr, slots: [] }, { onConflict: 'date' });
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase.from(SCHEDULE_TABLE).delete().eq('date', dateStr);
+                    if (error) throw error;
+                }
+                if (editDate === dateStr) setEditDate(null);
+            } else {
+                const { error } = await supabase.from(SCHEDULE_TABLE).upsert({ date: dateStr, slots }, { onConflict: 'date' });
+                if (error) throw error;
+            }
+            setSaveMsg(lang === 'de' ? '✓ Gespeichert' : '✓ Saved');
+            setTimeout(() => setSaveMsg(''), 2500);
+            onRefresh();
+        } catch (err) {
+            const msg = err?.message || err?.code || JSON.stringify(err);
+            setSaveMsg('✕ ' + msg.slice(0, 60));
+            setTimeout(() => setSaveMsg(''), 6000);
+        }
+        setSaving(false);
+    };
+
+    const removeDay = async (dateStr) => {
+        setSaving(true);
+        try {
+            if (isAdminWeekend(dateStr)) {
+                // Wochenende deaktivieren: leere slots in Supabase speichern
+                const { error } = await supabase.from(SCHEDULE_TABLE).upsert({ date: dateStr, slots: [] }, { onConflict: 'date' });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from(SCHEDULE_TABLE).delete().eq('date', dateStr);
+                if (error) throw error;
+            }
+            setSaveMsg(lang === 'de' ? '✓ Entfernt' : '✓ Removed');
+            setTimeout(() => setSaveMsg(''), 2500);
+            setEditDate(null);
+            onRefresh();
+        } catch (err) {
+            const msg = err?.message || err?.code || JSON.stringify(err);
+            setSaveMsg('✕ ' + msg.slice(0, 60));
+            setTimeout(() => setSaveMsg(''), 6000);
+        }
+        setSaving(false);
+    };
+
+    const inputCls = `w-full px-3 py-1.5 rounded-xl border text-[10px] font-medium transition-all ${
+        darkMode ? 'bg-white/[0.06] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+    }`;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className={`rounded-3xl border p-5 space-y-4 ${darkMode ? 'bg-violet-500/[0.06] border-violet-500/20' : 'bg-violet-50 border-violet-200'}`}
+        >
+            {/* Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                    <p className={`text-[9px] font-black uppercase tracking-widest ${darkMode ? 'text-violet-400' : 'text-violet-700'}`}>
+                        ⚙ {lang === 'de' ? 'Arbeitstage verwalten' : 'Manage working days'}
+                    </p>
+                    <p className={`text-[8px] mt-0.5 ${darkMode ? 'text-white/30' : 'text-black/40'}`}>
+                        {lang === 'de' ? 'Tag klicken → Slots wählen → Speichern' : 'Click day → pick slots → save'}
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {saveMsg && (
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                            className={`text-[9px] font-black px-2 py-1 rounded-lg max-w-[200px] truncate ${saveMsg.startsWith('✓') ? 'text-green-500 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}
+                            title={saveMsg}
+                        >
+                            {saveMsg}
+                        </motion.span>
+                    )}
+                    <button type="button"
+                        onClick={async () => {
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const role = session?.user ? 'authenticated ✓' : 'anon ✗ (nicht eingeloggt!)';
+                            setSaveMsg('Auth: ' + role + ' · ' + (session?.user?.email || '–'));
+                            setTimeout(() => setSaveMsg(''), 6000);
+                        }}
+                        className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${darkMode ? 'border-white/10 text-white/25 hover:text-white/50' : 'border-black/10 text-black/25 hover:text-black/50'}`}
+                    >
+                        auth?
+                    </button>
+                </div>
+            </div>
+
+            {/* Mini-Kalender */}
+            <div className={`rounded-2xl border p-4 ${darkMode ? 'bg-black/20 border-white/[0.06]' : 'bg-white/80 border-black/[0.06]'}`}>
+                {/* Nav */}
+                <div className="flex items-center justify-between mb-3">
+                    <button type="button" onClick={prevM} className={`w-7 h-7 rounded-lg flex items-center justify-center ${darkMode ? 'hover:bg-white/10 text-white/50' : 'hover:bg-black/5 text-black/50'}`}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-white' : 'text-black'}`}>
+                        {MONTH_NAMES[localMonth]} {localYear}
+                    </p>
+                    <button type="button" onClick={nextM} className={`w-7 h-7 rounded-lg flex items-center justify-center ${darkMode ? 'hover:bg-white/10 text-white/50' : 'hover:bg-black/5 text-black/50'}`}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+                {/* Day headers */}
+                <div className="grid grid-cols-7 mb-1">
+                    {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => (
+                        <div key={d} className={`text-center text-[7px] font-black uppercase py-1 ${darkMode ? 'text-white/20' : 'text-black/20'}`}>{d}</div>
+                    ))}
+                </div>
+                {/* Days */}
+                <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                        const day = i + 1;
+                        const dateStr = `${localYear}-${String(localMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                        const isPast = new Date(localYear, localMonth, day) < today;
+                        // Deaktiviertes Wochenende: in schedule mit slots=[]
+                        const inSupabase = dateStr in schedule;
+                        const isDisabledWeekend = inSupabase && schedule[dateStr].length === 0 && isAdminWeekend(dateStr);
+                        const isScheduled = inSupabase && !isDisabledWeekend;
+                        const isWeekendDefault = !inSupabase && isAdminWeekend(dateStr); // Sa/So ohne Eintrag = default verfügbar
+                        const isEditing = editDate === dateStr;
+                        return (
+                            <button key={day} type="button" disabled={isPast}
+                                onClick={() => openDay(dateStr)}
+                                className={`aspect-square rounded-lg text-[9px] font-black flex items-center justify-center transition-all relative ${
+                                    isPast
+                                        ? (darkMode ? 'text-white/10 cursor-not-allowed' : 'text-black/10 cursor-not-allowed')
+                                        : isEditing
+                                            ? 'bg-violet-600 text-white shadow-[0_0_10px_rgba(139,92,246,0.4)]'
+                                            : isScheduled
+                                                ? (darkMode ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/30 hover:bg-green-500/30' : 'bg-green-100 text-green-700 ring-1 ring-green-300 hover:bg-green-200')
+                                                : isWeekendDefault
+                                                    ? (darkMode ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/30 hover:bg-green-500/30' : 'bg-green-100 text-green-700 ring-1 ring-green-300 hover:bg-green-200')
+                                                    : isDisabledWeekend
+                                                        ? (darkMode ? 'text-white/20 ring-1 ring-red-500/20 bg-red-500/5' : 'text-black/20 ring-1 ring-red-300 bg-red-50')
+                                                        : (darkMode ? 'text-white/40 hover:bg-white/10' : 'text-black/40 hover:bg-violet-50')
+                                }`}>
+                                {day}
+                                {(isScheduled || isWeekendDefault) && !isEditing && (
+                                    <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-green-400" />
+                                )}
+                                {isDisabledWeekend && !isEditing && (
+                                    <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-red-400" />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Slot-Editor für gewählten Tag */}
+            <AnimatePresence>
+                {editDate && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className={`rounded-2xl border p-4 space-y-3 ${darkMode ? 'bg-black/20 border-white/[0.06]' : 'bg-white/80 border-black/[0.06]'}`}>
+                        <div className="flex items-center justify-between">
+                            <p className={`text-[9px] font-black uppercase tracking-widest ${darkMode ? 'text-white/60' : 'text-black/60'}`}>
+                                📅 {editDate}
+                            </p>
+                            <button type="button" onClick={() => removeDay(editDate)}
+                                className="text-[8px] font-black uppercase tracking-widest text-red-500 hover:text-red-400">
+                                {lang === 'de' ? 'Tag entfernen' : 'Remove day'}
+                            </button>
+                        </div>
+                        <p className={`text-[8px] ${darkMode ? 'text-white/30' : 'text-black/40'}`}>
+                            {lang === 'de' ? 'Verfügbare Zeitslots auswählen:' : 'Select available time slots:'}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {ALL_SLOTS.map(slot => (
+                                <button key={slot} type="button" onClick={() => toggleSlot(slot)}
+                                    className={`px-2.5 py-1 rounded-lg text-[8px] font-black border transition-all ${
+                                        editSlots.includes(slot)
+                                            ? 'bg-violet-600 border-violet-500 text-white'
+                                            : darkMode ? 'border-white/10 text-white/35 hover:border-white/25' : 'border-black/10 text-black/40 hover:border-violet-300'
+                                    }`}>
+                                    {slot}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setEditSlots([...ALL_SLOTS])}
+                                className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border ${darkMode ? 'border-white/10 text-white/30 hover:text-white/60' : 'border-black/10 text-black/40'}`}>
+                                {lang === 'de' ? 'Alle' : 'All'}
+                            </button>
+                            <button type="button" onClick={() => setEditSlots([])}
+                                className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border ${darkMode ? 'border-white/10 text-white/30 hover:text-white/60' : 'border-black/10 text-black/40'}`}>
+                                {lang === 'de' ? 'Keine' : 'None'}
+                            </button>
+                            <button type="button" disabled={saving} onClick={() => saveDay(editDate, editSlots)}
+                                className="flex-1 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[9px] font-black uppercase tracking-widest transition-colors disabled:opacity-50">
+                                {saving ? '...' : (lang === 'de' ? 'Speichern' : 'Save')}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 }

@@ -42,7 +42,7 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
         : 'bg-white/80 border-white/80 shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-2xl';
 
     const getPrice = (baseName) => {
-        let basePrice = (baseName === t.interior || baseName === t.exterior) ? 20 : baseName === t.signatureCombo ? 35 : 0;
+        let basePrice = (baseName === t.interior || baseName === t.exterior) ? 20 : baseName === t.signatureCombo ? 30 : 0;
         let final = basePrice + CAR_TYPES[carType].upcharge;
         if (withWax && (baseName === t.exterior || baseName === t.signatureCombo || baseName === t.interior)) final += 2;
         return final;
@@ -234,7 +234,6 @@ export default function Prices({ darkMode, lang, cart, setCart }) {
                                 lang === 'de' ? 'Komplette Außenwäsche' : 'Complete exterior wash',
                                 lang === 'de' ? 'Felgen & Reifen gereinigt' : 'Wheels & tyres cleaned',
                                 lang === 'de' ? 'Scheiben kristallklar' : 'Windows crystal clear',
-                                lang === 'de' ? 'Premium Wax Versiegelung ✨' : 'Premium Wax coating ✨',
                             ].map((feat, i) => (
                                 <div key={i} className="flex items-center gap-3">
                                     <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">

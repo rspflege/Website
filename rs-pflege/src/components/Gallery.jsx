@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { translations } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
@@ -311,14 +312,14 @@ export default function Gallery({ darkMode, lang }) {
         : 'border-white/60 bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]';
 
     return (
-        <section id="gallery" className="py-24 md:py-32 px-4 md:px-6 max-w-7xl mx-auto overflow-hidden">
+        <section id="gallery" className="py-12 md:py-20 px-4 md:px-6 max-w-7xl mx-auto">
 
             {/* ── Header ── */}
             <motion.div
                 initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-                className="text-center mb-14"
+                className="text-center mb-8 px-2"
             >
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }}
@@ -331,7 +332,7 @@ export default function Gallery({ darkMode, lang }) {
                     {lang === 'de' ? 'Unsere Arbeit' : 'Our work'}
                 </motion.div>
 
-                <h2 className={`text-5xl md:text-8xl font-black italic uppercase mb-4 tracking-tighter ${darkMode ? 'text-white' : 'text-black'}`}>
+                <h2 className={`text-4xl md:text-7xl font-black italic uppercase mb-3 tracking-tighter ${darkMode ? 'text-white' : 'text-black'}`}>
                     {t.galleryTitle}{' '}
                     <span className="text-blue-500 drop-shadow-[0_0_24px_rgba(59,130,246,0.45)]">{t.gallerySub}</span>
                 </h2>
@@ -339,7 +340,7 @@ export default function Gallery({ darkMode, lang }) {
                 <motion.p
                     initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.7 }}
-                    className={`text-sm font-medium max-w-md mx-auto leading-relaxed mb-8 ${darkMode ? 'text-white/35' : 'text-black/40'}`}
+                    className={`text-sm font-medium max-w-md mx-auto leading-relaxed mb-6 ${darkMode ? 'text-white/35' : 'text-black/40'}`}
                 >
                     {lang === 'de'
                         ? 'Jedes Bild erzählt eine Geschichte. Klicken Sie auf ein Bild um es zu vergrößern.'
@@ -374,28 +375,25 @@ export default function Gallery({ darkMode, lang }) {
 
             {/* ── Grid ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[160px] md:auto-rows-[280px] gap-3 md:gap-5">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="sync">
                     {filteredImages.map((image, index) => (
                         <motion.div
-                            key={(image.fileName || image.alt) + index}
-                            layout
-                            initial={{ opacity: 0, scale: 0.92, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.92, y: -10 }}
-                            transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.4), ease: [0.16, 1, 0.3, 1] }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.97 }}
+                            key={(image.fileName || image.alt) + activeTab}
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.25) }}
                             onClick={() => openLightbox(index)}
                             className={`${image.size} rounded-[2rem] md:rounded-[3rem] overflow-hidden relative group cursor-pointer border ${cardGlass} backdrop-blur-sm bg-black`}
+                            style={{ willChange: 'opacity, transform' }}
                         >
                             <img src={image.src} alt={image.alt}
-                                className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-95 transition-all duration-700"
-                                style={{ transform: 'scale(1)', transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease' }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                loading="lazy"
+                                decoding="async"
+                                className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-95 transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.05]"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 translate-y-3 group-hover:translate-y-0 transition-all duration-400">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
+                            <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
                                 <p className="text-white text-[10px] font-black uppercase tracking-widest">{image.alt}</p>
                                 <p className="text-white/50 text-[8px] font-bold uppercase mt-0.5">{lang === 'de' ? 'Klicken zum Vergrößern' : 'Click to enlarge'}</p>
                             </div>
@@ -484,80 +482,66 @@ export default function Gallery({ darkMode, lang }) {
                 )}
             </AnimatePresence>
 
-            {/* ══════════════ LIGHTBOX ══════════════ */}
-            <AnimatePresence>
+            {/* ══════════════ LIGHTBOX — via Portal (escapes all stacking contexts) ══════════════ */}
+            {createPortal(
+              <AnimatePresence>
                 {currentIndex !== null && (
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         transition={{ duration: 0.22 }}
-                        className="fixed inset-0 z-[2100] bg-black/96 backdrop-blur-3xl flex items-center justify-center"
+                        className="fixed inset-0 bg-black/97 flex flex-col"
+                        style={{ backdropFilter: 'blur(24px)', zIndex: 99999 }}
                         onClick={closeLightbox}
                     >
-                        {/* Dots */}
-                        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[2110] flex gap-1.5 max-w-[60vw] overflow-hidden">
-                            {filteredImages.map((_, i) => (
-                                <button key={i} onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
-                                    className={`h-1.5 rounded-full flex-shrink-0 transition-all duration-300 touch-manipulation ${
-                                        i === currentIndex ? 'w-7 bg-blue-500' : 'w-2 bg-white/25 hover:bg-white/50'
-                                    }`}
-                                />
-                            ))}
-                        </div>
+                        {/* ── Top bar: dots + admin delete ── */}
+                        <div className="flex-shrink-0 flex items-center justify-center pt-5 pb-2 px-4 relative" style={{ minHeight: 44 }}>
+                            <div className="flex gap-1.5 max-w-[60vw] overflow-hidden">
+                                {filteredImages.map((_, i) => (
+                                    <button key={i} onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+                                        className={`h-1.5 rounded-full flex-shrink-0 transition-all duration-300 touch-manipulation ${
+                                            i === currentIndex ? 'w-7 bg-blue-500' : 'w-2 bg-white/25'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
 
-                        {/* Admin: Löschen */}
-                        {isAdmin && filteredImages[currentIndex]?.custom && (
-                            <motion.button
-                                initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                                transition={{ delay: 0.1 }}
-                                onClick={(e) => { e.stopPropagation(); deleteImage(filteredImages[currentIndex]); }}
-                                className="absolute top-4 left-4 z-[2200] w-11 h-11 flex items-center justify-center rounded-full bg-red-500/15 hover:bg-red-500/60 border border-red-500/25 text-red-400 hover:text-white transition-all duration-150 active:scale-90 touch-manipulation"
-                                aria-label="Bild löschen"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </motion.button>
-                        )}
-
-                        {/* Bildtitel */}
-                        <motion.p
-                            key={currentIndex + '-t'}
-                            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.12 }}
-                            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[2110] text-white/50 text-[11px] font-black uppercase tracking-[0.3em] pointer-events-none whitespace-nowrap"
-                        >
-                            {filteredImages[currentIndex]?.alt}
-                        </motion.p>
-
-                        {/* Schließen-Button — unten mittig */}
-                        <motion.button
-                            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
-                            transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 26 }}
-                            onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-                            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[2200] flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-red-500/60 border border-white/15 text-white text-[10px] font-black uppercase tracking-widest transition-all duration-150 active:scale-95 touch-manipulation backdrop-blur-xl"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
-                                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                            </svg>
-                            {lang === 'de' ? 'Schließen' : 'Close'}
-                        </motion.button>
-
-                        {/* Desktop Pfeile */}
-                        <div className="absolute inset-x-4 md:inset-x-6 top-1/2 -translate-y-1/2 hidden md:flex justify-between z-[2110] pointer-events-none">
-                            {[{ dir: -1, d: 'M15 19l-7-7 7-7' }, { dir: 1, d: 'M9 5l7 7-7 7' }].map(({ dir, d }) => (
-                                <motion.button key={dir} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
-                                    onClick={(e) => { e.stopPropagation(); paginate(dir); }}
-                                    className="p-4 text-white bg-white/[0.06] hover:bg-blue-600 rounded-2xl border border-white/10 pointer-events-auto transition-all duration-200 backdrop-blur-xl"
+                            {isAdmin && filteredImages[currentIndex]?.custom && (
+                                <motion.button
+                                    initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.1 }}
+                                    onClick={(e) => { e.stopPropagation(); deleteImage(filteredImages[currentIndex]); }}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full bg-red-500/15 hover:bg-red-500/60 border border-red-500/25 text-red-400 hover:text-white transition-all active:scale-90 touch-manipulation"
                                 >
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={d} />
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 </motion.button>
-                            ))}
+                            )}
+
+                            <p className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:block text-white/15 text-[9px] font-black uppercase tracking-[0.25em] pointer-events-none">
+                                {lang === 'de' ? 'Außerhalb klicken zum Schließen' : 'Click outside to close'}
+                            </p>
                         </div>
 
-                        {/* Bild */}
-                        <div className="relative w-full h-[80vh] flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                        {/* ── Image area — fills remaining space ── */}
+                        <div
+                            className="flex-1 relative flex items-center justify-center px-4 md:px-20 min-h-0"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Desktop arrows */}
+                            <div className="absolute inset-x-2 md:inset-x-4 top-1/2 -translate-y-1/2 hidden md:flex justify-between z-10 pointer-events-none">
+                                {[{ dir: -1, d: 'M15 19l-7-7 7-7' }, { dir: 1, d: 'M9 5l7 7-7 7' }].map(({ dir, d }) => (
+                                    <motion.button key={dir} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
+                                        onClick={(e) => { e.stopPropagation(); paginate(dir); }}
+                                        className="p-4 text-white bg-white/[0.06] hover:bg-blue-600 rounded-2xl border border-white/10 pointer-events-auto transition-all duration-200 backdrop-blur-xl"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={d} />
+                                        </svg>
+                                    </motion.button>
+                                ))}
+                            </div>
+
                             <AnimatePresence initial={false} custom={direction}>
                                 <motion.div
                                     key={currentIndex}
@@ -585,21 +569,50 @@ export default function Gallery({ darkMode, lang }) {
                             </AnimatePresence>
                         </div>
 
-                        <p className="absolute top-5 right-5 hidden md:block text-white/15 text-[9px] font-black uppercase tracking-[0.25em] pointer-events-none">
-                            {lang === 'de' ? 'Außerhalb klicken zum Schließen' : 'Click outside to close'}
-                        </p>
-                        <p className="absolute bottom-2 left-1/2 -translate-x-1/2 md:hidden text-white/15 text-[7px] font-black uppercase tracking-[0.3em] whitespace-nowrap pointer-events-none">
-                            {t.gallerySwipeTip || 'Swipe ← →'}
-                        </p>
+                        {/* ── Bottom bar: title + close ── */}
+                        <div
+                            className="flex-shrink-0 flex flex-col items-center gap-3 pt-3 pb-6 px-4"
+                            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <motion.p
+                                key={currentIndex + '-t'}
+                                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-white/45 text-[10px] font-black uppercase tracking-[0.3em] pointer-events-none text-center"
+                            >
+                                {filteredImages[currentIndex]?.alt?.replace(/_/g, ' ')}
+                            </motion.p>
+
+                            <motion.button
+                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.08, type: 'spring', stiffness: 300, damping: 26 }}
+                                onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+                                className="flex items-center gap-2.5 px-7 py-3 rounded-full bg-white/10 hover:bg-white/18 active:bg-red-500/60 border border-white/15 text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+                                    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                                </svg>
+                                {lang === 'de' ? 'Schließen' : 'Close'}
+                            </motion.button>
+
+                            <p className="md:hidden text-white/15 text-[7px] font-black uppercase tracking-[0.3em] pointer-events-none">
+                                {t.gallerySwipeTip || 'Swipe ← →'}
+                            </p>
+                        </div>
                     </motion.div>
                 )}
-            </AnimatePresence>
-            {/* ══════════════ LÖSCHEN BESTÄTIGEN ══════════════ */}
-            <AnimatePresence>
+            </AnimatePresence>,
+            document.body
+            )}
+            {/* ══════════════ LÖSCHEN BESTÄTIGEN — via Portal ══════════════ */}
+            {createPortal(
+              <AnimatePresence>
                 {deleteConfirm && (
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[3200] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4"
+                        className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4"
+                        style={{ zIndex: 100000 }}
                         onClick={() => setDeleteConfirm(null)}
                     >
                         <motion.div
@@ -638,7 +651,9 @@ export default function Gallery({ darkMode, lang }) {
                         </motion.div>
                     </motion.div>
                 )}
-            </AnimatePresence>
+            </AnimatePresence>,
+            document.body
+            )}
 
         </section>
     );
